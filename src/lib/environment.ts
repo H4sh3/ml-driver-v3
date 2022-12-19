@@ -15,12 +15,7 @@ export class Environment {
     startCheckpoint: number
 
     constructor() {
-        this.init()
-    }
-
-    init() {
         this.checkpoints = []
-        this.initCircleTrack()
     }
 
     initCircleTrack() {

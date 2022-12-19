@@ -22,6 +22,7 @@ export class Agent {
 
     update() {
         const step = this.direction.copy().mult(this.vel)
+        this.vel *= 0.85
         this.pos.add(step)
     }
 }

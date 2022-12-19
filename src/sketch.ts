@@ -25,7 +25,7 @@ export const sketch = (p: p5) => {
     state.gym = new Gym()
     state.renderer = new Renderer(p)
 
-    state.gym.runTraining()
+    state.gym.exploration()
     state.gym.runEvaluation()
     console.log("setup end")
   }
