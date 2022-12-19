@@ -1,14 +1,18 @@
 import { Agent } from "./agent";
 import { mapValue } from "./helpers";
 import Vector from "./vector";
-
+function getRandomInt(min: number, max: number): number {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 export class Environment {
     numCheckpoints: number
     checkpoints: Vector[]
     radius = 200
     maxDist = 100
     center = new Vector(0, 0)
-    startCheckpoint = 0
+    startCheckpoint: number
 
     constructor() {
         this.init()
@@ -45,11 +49,15 @@ export class Environment {
 
     getStartPosition() {
         // return a start position close to the first checkpoint
-        const c1 = this.checkpoints[this.startCheckpoint]
-        const c2 = this.checkpoints[this.startCheckpoint + 1].copy().sub(c1).normalize()
-        return c1.copy().sub(c2.mult(5))
 
-        return this.checkpoints[this.startCheckpoint].copy().rotate(-1)
+        //this.startCheckpoint = 0
+        this.startCheckpoint = getRandomInt(0, this.numCheckpoints - 2)
+        const c1 = this.checkpoints[this.startCheckpoint]
+        const c2 = this.checkpoints[this.startCheckpoint + 1]
+
+        const difference = c1.copy().sub(c2)
+
+        return c1.copy().add(difference.mult(0.5))
     }
 
     getStartDirection(): number {
