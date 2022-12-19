@@ -1,4 +1,4 @@
-import { flattenVectors, getMaxDist, mapValue, normalizeVectors } from "../lib/helpers";
+import { flatten, getMaxDist, mapValue, normalize, rotate, transpose } from "../lib/helpers";
 import Vector from "../lib/vector";
 
 it('test helper maxDist', () => {
@@ -10,10 +10,10 @@ it('test helper maxDist', () => {
 
     expect(getMaxDist(vectors, position)).toBe(1020)
 
-    const normalized = normalizeVectors(vectors)
+    const normalized = normalize(vectors)
     expect(normalized.every(n => n.x >= -1 && n.x <= 1 && n.y >= -1 && n.y <= 1)).toBeTruthy()
 
-    const flat = flattenVectors(vectors)
+    const flat = flatten(vectors)
     expect(flat[0]).toBe(0)
     expect(flat[1]).toBe(100)
     expect(flat[3]).toBe(1020)
@@ -25,54 +25,44 @@ it('test mapValue', () => {
 })
 
 
-it('test vector relative to direction and position', () => {
+it('test vector transposed and rotate 1', () => {
     const pos = new Vector(100, 0)
-    const direction = new Vector(1, 0)
     const c1 = new Vector(150, 0)
 
+    const transposed = transpose([c1], pos)
+    expect(transposed[0].x).toBe(50)
+    expect(transposed[0].y).toBe(0)
 
+    let direction = new Vector(1, 0)
+    let rotated = rotate(transposed, -direction.heading())
+    expect(rotated[0].heading()).toBeCloseTo(0)
 
-    const relativePos = c1.copy().sub(pos)
-    expect(relativePos.x).toBe(50)
-    expect(relativePos.y).toBe(0)
+    direction = new Vector(-1, 0)
+    rotated = rotate(transposed, -direction.heading())
+    expect(rotated[0].heading()).toBeCloseTo(-180)
 
-    expect(direction.heading()).toBe(0)
-    const rotated = relativePos.rotate(-direction.heading())
-    expect(rotated.x).toBe(50)
-    expect(rotated.y).toBe(0)
-
+    direction = new Vector(-1, 0.01)
+    rotated = rotate(transposed, direction.heading())
+    expect(rotated[0].heading()).toBeCloseTo(-0.572)
 })
 
-it('test vector relative to direction and position v2', () => {
-    const pos = new Vector(100, 0)
-    const direction = new Vector(0, 1)
-    const c1 = new Vector(150, 0)
+it('test vector transposed and rotate 2', () => {
+    const pos = new Vector(-100, 0)
+    const c1 = new Vector(-100, -50)
 
+    const transposed = transpose([c1], pos)
+    expect(transposed[0].x).toBe(0)
+    expect(transposed[0].y).toBe(-50)
 
-    const relativePos = c1.copy().sub(pos)
-    expect(relativePos.x).toBe(50)
-    expect(relativePos.y).toBe(0)
+    let direction = new Vector(0, -1)
+    let rotated = rotate(transposed, -direction.heading())
+    expect(rotated[0].heading()).toBeCloseTo(0)
 
+    direction = new Vector(-1, 0)
+    rotated = rotate(transposed, -direction.heading())
+    expect(rotated[0].heading()).toBeCloseTo(-180)
 
-    expect(direction.heading()).toBe(90)
-    const rotated = relativePos.rotate(-direction.heading())
-    expect(rotated.x).toBeCloseTo(0)
-    expect(rotated.y).toBe(-50)
-})
-
-it('test vector relative to direction and position v3', () => {
-    const pos = new Vector(50, -150)
-    const direction = new Vector(0, -1)
-    const c1 = new Vector(75, -200)
-
-
-    const relativePos = c1.copy().sub(pos)
-    expect(relativePos.x).toBe(25)
-    expect(relativePos.y).toBe(-50)
-
-
-    expect(direction.heading()).toBe(-90)
-    const rotated = relativePos.rotate(-direction.heading())
-    expect(rotated.x).toBeCloseTo(50)
-    expect(rotated.y).toBeCloseTo(25)
+    direction = new Vector(-1, 0.01)
+    rotated = rotate(transposed, direction.heading())
+    expect(rotated[0].heading()).toBeCloseTo(-0.572)
 })

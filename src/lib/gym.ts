@@ -2,15 +2,15 @@ import { Agent } from "./agent";
 import { Environment } from "./environment";
 import { NeuralNetwork } from "brain.js"
 import Vector from "./vector";
-import { flattenVectors, mapValue, normalizeVectors } from "./helpers";
+import { flatten, mapValue, normalize, rotate, transpose } from "./helpers";
 
 
 const inputCheckpoints = 3
 
 const brainConfig = {
     binaryThresh: 0.5,
-    inputSize: (inputCheckpoints * 2),
-    outputSize: 1,
+    inputSize: (inputCheckpoints * 2) + 1, // +1 = vel
+    outputSize: 2,
     hiddenLayers: [3, 3], // array of ints for the sizes of the hidden layers in the network
     activation: 'sigmoid', // supported activation types: ['sigmoid', 'relu', 'leaky-relu', 'tanh'],
 }
@@ -90,6 +90,7 @@ export class Gym {
         this.needsTraining = false
 
         this.environment = new Environment()
+        this.environment.initSinTrack()
         this.init()
 
         this.scoreCount = new Map()
@@ -103,7 +104,9 @@ export class Gym {
         this.agent = new Agent(startPos, new Vector(1, 0).rotate(startDir))
     }
 
-    runTraining() {
+    exploration() {
+        // lets the agent explore the environment by somethimes picking random actions
+
         while (this.epoch < this.exploreEpoch) {
             this.run()
         }
@@ -218,22 +221,20 @@ export class Gym {
             }
         }
 
-        const relative = checkpoints.map(c => c.copy()).map(c => c.sub(this.agent.pos))
-        //const rotated = relative.map(c => c.rotate(0))
-        const rotated = relative.map(c => c.rotate(-this.agent.direction.heading()))
+        const transposed = transpose(checkpoints, this.agent.pos)
+        const rotated = rotate(transposed, -this.agent.direction.heading())
+        const normalized = normalize(rotated)
+        const inputs = flatten(normalized).map(v => mapValue(v, -1, 1, 0, 1))
 
         this.rotatedCheckpoints = rotated
 
-        //let inputs: number[] = []
-        //rotated.forEach(r => {
-        //    inputs.push(mapValue(r.heading(), -180, 180, -1, 1))
-        //})
+        inputs.push(mapValue(this.agent.vel, 0, 4, -1, 1))
 
-        const normalized = normalizeVectors(rotated)
-        const inputs = flattenVectors(normalized)//.map(v => mapValue(v, -1, 1, 0, 1))
-        //inputs.push(mapValue(this.agent.vel, 0, 5, 0, 1))
+        let output: number[] = []
+        for (let i = 0; i < brainConfig.outputSize; i++) {
+            output.push(Math.random())
+        }
 
-        let output: number[] = [Math.random()]
         if (this.explore) {
             if (Math.random() > 0.15 && this.gotTrained) {
                 output = this.agent.predict(this.brain, inputs)
@@ -247,11 +248,7 @@ export class Gym {
 
         this.currentMemory.push({ "input": [...inputs], "output": [...output], "reward": gotReward ? 1 : 0 })
 
-        //this.agent.vel += mapValue(output[1], 0, 1, 0, 1)
-
-        if (this.agent.vel > 5) {
-            this.agent.vel = 5
-        }
+        this.agent.vel += mapValue(output[1], 0, 1, 0, 1)
 
         // update agents position
         this.agent.update()

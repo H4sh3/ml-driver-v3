@@ -7,12 +7,12 @@ export const getMaxDist = (vectors: Vector[], position: Vector) => {
     }, 0)
 }
 
-export const normalizeVectors = (vectors: Vector[]) => {
+export const normalize = (vectors: Vector[]) => {
     const maxDist = getMaxDist(vectors, new Vector(0, 0))
     return vectors.map(c => c.copy()).map(c => c.div(maxDist))
 }
 
-export const flattenVectors = (vectors: Vector[]): number[] => {
+export const flatten = (vectors: Vector[]): number[] => {
     return vectors.reduce((acc: number[], v: Vector) => {
         return [...acc, v.x, v.y]
     }, [])
@@ -23,3 +23,12 @@ export const mapValue = (value: number, startMin: number, startMax: number, targ
     //return v1 * (targetMax - targetMin)
     return (value - startMin) * (targetMax - targetMin) / (startMax - startMin) + targetMin;
 }
+
+export const transpose = (vectors: Vector[], center: Vector) => {
+    return vectors.map(c => c.copy()).map(c => c.sub(center))
+}
+
+export const rotate = (vectors: Vector[], angle: number) => {
+    return vectors.map(c => c.rotate(angle))
+}
+

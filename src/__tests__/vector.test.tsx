@@ -129,6 +129,32 @@ it('heading etc', () => {
     expect(v2.copy().sub(v).heading()).toBeCloseTo(-135)
 });
 
+
+it('heading test', () => {
+    const v1: Vector = new Vector(1, 0)
+    expect(v1.heading()).toBeCloseTo(0)
+    v1.y = -0.01
+    expect(v1.heading()).toBeCloseTo(-0.57)
+    v1.y = 0.01
+    expect(v1.heading()).toBeCloseTo(0.57)
+
+    const v2: Vector = new Vector(0, 1)
+    expect(v2.heading()).toBeCloseTo(90)
+
+    const v3: Vector = new Vector(-1, 0)
+    expect(v3.heading()).toBeCloseTo(180)
+
+    v3.y = -0.01
+    expect(v3.heading()).toBeCloseTo(-179.427)
+
+    v3.y = 0.01
+    expect(v3.heading()).toBeCloseTo(179.427)
+
+
+    const v4: Vector = new Vector(0, -1)
+    expect(v4.heading()).toBeCloseTo(-90)
+});
+
 it('angle between vectors', () => {
     let v2: Vector = new Vector(1, 0)
     let v1: Vector = new Vector(0, -1)
