@@ -2,7 +2,7 @@ import { Agent } from "./agent";
 import { Environment } from "./environment";
 import { NeuralNetwork } from "brain.js"
 import Vector from "./vector";
-import { flatten, mapValue, normalize, rotate, transpose } from "./helpers";
+import { flatten, mapValue, normalize, randomArray, rotate, transpose } from "./helpers";
 
 
 const inputCheckpoints = 3
@@ -211,30 +211,30 @@ export class Gym {
         const checkpoints = this.environment.getCheckpoints(inputCheckpoints, this.agent.score)
         this.activeCheckpoints = checkpoints
 
-        let gotReward = false
+        let reward = 0
         // update score if agent is close to target
-        if (this.agent.pos.dist(checkpoints[0]) < 40) {
-            this.agent.score++
+        const reachedCheckpoint = this.agent.pos.dist(checkpoints[0]) < 40
 
-            if (this.count > 25) {
-                gotReward = true
-            }
+        // ignore first few rewards
+        const relevantCheckpoint = this.count > 25
+
+        if (reachedCheckpoint) {
+            this.agent.score++
+        }
+
+        if (reachedCheckpoint && relevantCheckpoint) {
+            reward = 1
         }
 
         const transposed = transpose(checkpoints, this.agent.pos)
         const rotated = rotate(transposed, -this.agent.direction.heading())
-        const normalized = normalize(rotated)
-        const inputs = flatten(normalized).map(v => mapValue(v, -1, 1, 0, 1))
-
+        // for visualization
         this.rotatedCheckpoints = rotated
-
+        const normalized = normalize(rotated)
+        const inputs = flatten(normalized)//.map(v => mapValue(v, -1, 1, 0, 1))
         inputs.push(mapValue(this.agent.vel, 0, 4, -1, 1))
 
-        let output: number[] = []
-        for (let i = 0; i < brainConfig.outputSize; i++) {
-            output.push(Math.random())
-        }
-
+        let output: number[] = randomArray(brainConfig.outputSize)
         if (this.explore) {
             if (Math.random() > 0.15 && this.gotTrained) {
                 output = this.agent.predict(this.brain, inputs)
@@ -246,7 +246,7 @@ export class Gym {
 
         this.agent.direction.rotate(mapValue(output[0], 0, 1, 15, -15))
 
-        this.currentMemory.push({ "input": [...inputs], "output": [...output], "reward": gotReward ? 1 : 0 })
+        this.currentMemory.push({ "input": [...inputs], "output": [...output], "reward": reward })
 
         this.agent.vel += mapValue(output[1], 0, 1, 0, 1)
 

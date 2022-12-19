@@ -32,3 +32,10 @@ export const rotate = (vectors: Vector[], angle: number) => {
     return vectors.map(c => c.rotate(angle))
 }
 
+export const randomArray = (n: number) => {
+    const arr = []
+    for (let i = 0; i < n; i++) {
+        arr.push(Math.random())
+    }
+    return arr
+}
