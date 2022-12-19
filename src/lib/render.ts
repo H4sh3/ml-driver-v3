@@ -26,7 +26,8 @@ export class Renderer {
     renderAgent = (agent: Agent) => {
         this.p5.push()
         this.translate()
-        this.p5.text(agent.score, 0, 0)
+        this.p5.text(agent.score, 0, -10)
+        this.p5.text(agent.vel, 0, -20)
         this.p5.ellipse(agent.pos.x, agent.pos.y, 5, 5)
         this.p5.line(agent.pos.x, agent.pos.y, agent.pos.x + agent.direction.x * 15, agent.pos.y + agent.direction.y * 15)
         this.p5.pop()
@@ -36,9 +37,10 @@ export class Renderer {
         this.p5.push()
         this.translate()
         gym.activeCheckpoints.forEach(c => {
-            this.p5.fill(255, 0, 0)
+            this.p5.fill(0, 255, 0)
             this.p5.rect(c.x, c.y, 6, 6)
         })
+        this.p5.ellipse(0, 0, 5, 5)
         this.p5.line(0, 0, 50, 0)
         // this.p5.rotate(-gym.agent.direction.heading())
         gym.rotatedCheckpoints.forEach(c => {
