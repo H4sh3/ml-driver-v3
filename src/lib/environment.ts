@@ -45,8 +45,8 @@ export class Environment {
     getStartPosition() {
         // return a start position close to the first checkpoint
 
-        //this.startCheckpoint = 0
-        this.startCheckpoint = getRandomInt(0, this.numCheckpoints - 2)
+        this.startCheckpoint = 0
+        // this.startCheckpoint = getRandomInt(0, this.numCheckpoints - 2)
         const c1 = this.checkpoints[this.startCheckpoint]
         const c2 = this.checkpoints[this.startCheckpoint + 1]
 
