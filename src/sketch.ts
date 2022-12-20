@@ -34,10 +34,15 @@ export const sketch = (p: p5) => {
   p.draw = () => {
     p.background(120)
     if (state.renderer instanceof Renderer && state.gym instanceof Gym) {
-      state.gym.run()
+      state.gym.run(false)
       state.renderer.renderEnvironment(state.gym.environment)
       state.renderer.renderAgent(state.gym.agent)
       state.renderer.renderGym(state.gym)
+
+      if (state.gym.finished()) {
+        console.log(`Score: ${state.gym.agent.score}`)
+        state.gym.reset()
+      }
     }
   }
 }

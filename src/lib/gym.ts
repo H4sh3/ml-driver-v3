@@ -5,13 +5,16 @@ import Vector from "./vector";
 import { flatten, mapValue, normalize, randomArray, rotate, transpose } from "./helpers";
 
 
-const inputCheckpoints = 3
+const inputCheckpoints = 4
+const inputNodes = (inputCheckpoints * 2) + 1
+const outputNodes = 2
+const hiddenNodes = Math.floor((inputNodes + outputNodes) / 2)
 
 const brainConfig = {
     binaryThresh: 0.5,
-    inputSize: (inputCheckpoints * 2) + 1, // +1 = vel
-    outputSize: 2,
-    hiddenLayers: [3, 3], // array of ints for the sizes of the hidden layers in the network
+    inputSize: inputNodes, // +1 = vel
+    outputSize: outputNodes,
+    hiddenLayers: [hiddenNodes, hiddenNodes], // array of ints for the sizes of the hidden layers in the network
     activation: 'sigmoid', // supported activation types: ['sigmoid', 'relu', 'leaky-relu', 'tanh'],
 }
 
@@ -65,6 +68,7 @@ export class Gym {
 
     activeCheckpoints: Vector[]
     scoreCount: Map<number, number>
+    failed: boolean
 
     constructor() {
         this.explore = true
@@ -82,6 +86,7 @@ export class Gym {
         this.exploreEpoch = 50000 // 200k got 100% hit rate
         this.gotTrained = false
 
+
         this.startLearningRate = 0.85
         this.learningRate = this.startLearningRate
         this.brain = new NeuralNetwork(brainConfig)
@@ -90,13 +95,15 @@ export class Gym {
         this.needsTraining = false
 
         this.environment = new Environment()
+        // this.environment.initCircleTrack()
         this.environment.initSinTrack()
-        this.init()
+        this.reset()
 
         this.scoreCount = new Map()
     }
 
-    init() {
+    reset() {
+        this.failed = false
         this.currentMemory = []
         this.count = 0
         const startPos = this.environment.getStartPosition()
@@ -106,29 +113,34 @@ export class Gym {
 
     exploration() {
         // lets the agent explore the environment by somethimes picking random actions
-
         while (this.epoch < this.exploreEpoch) {
-            this.run()
-        }
-        this.explore = false
-        console.log("Initial Training Finished!")
-        // forget random training data
-        const trainingsConfig = {
-            errorThresh: 0.005,
-            iterations: 100000,
-            learningRate: 0.85
-        }
-        this.brain.train(this.memoryData, trainingsConfig)
 
-        this.gotTrained = true
+            // run till finished -> then evaluate
+            while (!this.finished()) {
+                this.run(true)
+            }
+            if (this.agent.score > this.bestScore) {
+                console.log(`Exploration score: ${this.agent.score} / ${this.bestScore} in ${this.epoch}/${this.exploreEpoch}`)
+            }
+            this.evaluate()
+        }
+    }
+
+    finished() {
+        return this.count >= this.maxCount || this.environment.hasAgentLeftCourse(this.agent) || this.failed
     }
 
     runEvaluation() {
-        console.log(`starting eval at ${this.epoch}`)
-        while (this.epoch < this.exploreEpoch + 1) {
-            this.run()
+        this.reset()
+
+        // run till finished
+        while (!this.finished()) {
+            this.run(false)
         }
-        console.log(`finished eval at ${this.epoch}`)
+        const score = this.agent.score
+        this.reset()
+
+        return score
     }
 
     forget() {
@@ -139,7 +151,7 @@ export class Gym {
 
     trainNetwork(trainingsData: Memory[], learningRate: number) {
         if (trainingsData.length == 0) return
-        // forget random training data
+
         const trainingsConfig = {
             errorThresh: 0.005,
             iterations: 10000,
@@ -147,14 +159,16 @@ export class Gym {
         }
 
         trainingsData = shuffle(trainingsData)
+
+        // batch training with 25%
         // trainingsData = trainingsData.slice(0, Math.floor(trainingsData.length * 0.25))
+
         console.log(`training with ${trainingsData.length} entries`)
         this.brain.train(trainingsData, trainingsConfig)
         this.gotTrained = true
     }
 
     evaluate() {
-
         if (this.scoreCount.has(this.agent.score)) {
             this.scoreCount.set(this.agent.score, this.scoreCount.get(this.agent.score) + 1)
         } else {
@@ -162,58 +176,52 @@ export class Gym {
         }
 
         if (this.agent.score > this.bestScore) {
-            this.needsTraining = true
-            this.bestScore = this.agent.score
-
-            console.log(`SCORE: ${this.agent.score} in ${this.epoch}`)
-
-            // this.memoryData = []
-
-            // search entries that have a reward
-            // this.memoryData = this.memoryData.concat(this.currentMemory.filter(c => c.reward == 1))
 
             // add memories with reward and previous n to trainingsdata
             const rewardIndexes = this.currentMemory.filter(c => c.reward == 1).reduce((acc, c) => [...acc, this.currentMemory.indexOf(c)], [])
+            let newMemories: Memory[] = []
             rewardIndexes.forEach(r => {
-                this.memoryData = this.memoryData.concat(this.currentMemory.slice(r - 5, r))
+                newMemories = newMemories.concat(this.currentMemory.slice(r - 5, r))
             })
 
             this.forget()
-            this.trainNetwork(this.memoryData, this.learningRate)
-        }
+
+            const backupBrain = this.brain.toJSON()
+
+            this.trainNetwork([...this.memoryData, ...newMemories], this.learningRate)
 
 
-        if (!this.explore) {
-            console.log(`Eval score ${this.agent.score}`)
-            /* console.log(this.scoreCount) */
+            if (this.gotTrained) {
+                const evalScore = this.runEvaluation()
+                console.log(`Eval Score: ${evalScore}`)
+                if (evalScore >= this.bestScore) {
+                    this.bestScore = evalScore
+                    this.memoryData = this.memoryData.concat(newMemories)
+
+                    if (this.bestScore >= 50) {
+                        this.epoch = this.exploreEpoch
+                    }
+                } else {
+                    // evalualtion resulted in worse performance
+                    this.brain = this.brain.fromJSON(backupBrain)
+                }
+            }
         }
 
         this.epoch++
-        this.init()
-
-        if (this.epoch % (this.exploreEpoch / 10) === 0) {
-            console.log(`${Math.floor((this.epoch / this.exploreEpoch) * 100)}% tdl: ${this.memoryData.length} lr:${this.learningRate}`)
-        }
-
-        if (this.epoch % (this.exploreEpoch / 100) === 0 && this.needsTraining) {
-            if (this.memoryData.length == 0) return
-
-            const newLR = this.startLearningRate // + ((0.90 - this.startLearningRate) * (this.epoch / this.exploreEpoch))
-            if (newLR < 1) {
-                this.learningRate = newLR
-            }
-            this.needsTraining = false
-
-        }
+        this.reset()
     }
 
-    run() {
+    run(explore: boolean) {
         const checkpoints = this.environment.getCheckpoints(inputCheckpoints, this.agent.score)
         this.activeCheckpoints = checkpoints
 
         let reward = 0
         // update score if agent is close to target
         const reachedCheckpoint = this.agent.pos.dist(checkpoints[0]) < 40
+
+        // check if it reached a differen cp first
+        this.failed = checkpoints.slice(1, checkpoints.length - 1).some(c => this.agent.pos.dist(c) < 40)
 
         // ignore first few rewards
         const relevantCheckpoint = this.count > 25
@@ -228,14 +236,12 @@ export class Gym {
 
         const transposed = transpose(checkpoints, this.agent.pos)
         const rotated = rotate(transposed, -this.agent.direction.heading())
-        // for visualization
-        this.rotatedCheckpoints = rotated
         const normalized = normalize(rotated)
         const inputs = flatten(normalized)//.map(v => mapValue(v, -1, 1, 0, 1))
-        inputs.push(mapValue(this.agent.vel, 0, 4, -1, 1))
+        inputs.push(mapValue(this.agent.vel.mag(), 0, 5, -1, 1))
 
         let output: number[] = randomArray(brainConfig.outputSize)
-        if (this.explore) {
+        if (explore) {
             if (Math.random() > 0.15 && this.gotTrained) {
                 output = this.agent.predict(this.brain, inputs)
             }
@@ -243,21 +249,16 @@ export class Gym {
             // normal run no explore
             output = this.agent.predict(this.brain, inputs)
         }
-
-        this.agent.direction.rotate(mapValue(output[0], 0, 1, 15, -15))
-
         this.currentMemory.push({ "input": [...inputs], "output": [...output], "reward": reward })
 
-        this.agent.vel += mapValue(output[1], 0, 1, 0, 1)
-
         // update agents position
-        this.agent.update()
-
+        const steerOutput = output[0]
+        const accelerationOutpupt = output[1]
+        this.agent.update(steerOutput, accelerationOutpupt)
 
         this.count++
 
-        if (this.count >= this.maxCount || this.environment.hasAgentLeftCourse(this.agent)) {
-            this.evaluate()
-        }
+        // for visualization
+        this.rotatedCheckpoints = rotated
     }
 }
