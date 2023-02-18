@@ -30,10 +30,6 @@ export const sketch = (p: p5) => {
     console.log("setup end")
     const button = p.createButton("Stop training")
     button.position(10, 10)
-    button.mousePressed(() => {
-      state.gym.toggleTrainning()
-    })
-
     const trackButton = p.createButton("Change track")
     trackButton.position(110, 10)
     trackButton.mousePressed(() => {
@@ -59,18 +55,13 @@ export const sketch = (p: p5) => {
 
       if (state.started && state.renderer instanceof Renderer && state.gym instanceof Gym) {
 
-        const finished = state.gym.exploration(state.renderer)
+        const trainingFinished = state.gym.exploration(state.renderer)
 
-        if (finished) {
-          state.gym.run(false)
+        if (trainingFinished) {
+          state.gym.run()
           state.renderer.renderEnvironment(state.gym.environment)
           state.renderer.renderAgent(state.gym.agent)
           state.renderer.renderGym(state.gym)
-
-          if (state.gym.finished()) {
-            console.log(`Score: ${state.gym.agent.score}`)
-            state.gym.reset()
-          }
         }
       } else {
         p.background(255)

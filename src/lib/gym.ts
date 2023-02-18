@@ -132,11 +132,8 @@ export class Gym {
         if (!finished) {
             for (let i = 0; i < this.exploreEpoch / 100; i++) {
 
-                // run till finished -> then evaluate
-                let rewardSum = 0
-
                 while (!this.finished()) {
-                    rewardSum += this.run(true)
+                    this.run()
                 }
 
                 const newBestScore = this.agent.score > this.bestScore
@@ -179,7 +176,7 @@ export class Gym {
     }
 
 
-    run(trainAgent: boolean) {
+    run() {
         const { inputs, checkpoints, rotated } = getInputs(this.environment, this.agent)
         this.activeCheckpoints = checkpoints
         this.rotatedCheckpoints = rotated
@@ -225,6 +222,5 @@ export class Gym {
         }
 
         this.step++
-        return reward
     }
 }
