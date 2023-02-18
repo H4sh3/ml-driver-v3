@@ -39,3 +39,6 @@ export const randomArray = (n: number) => {
     }
     return arr
 }
+
+
+export const otherAgentAsInput = (agentPos: Vector, agentHeading: Vector, otherAgentPos: Vector) => otherAgentPos.copy().sub(agentPos).rotate(-agentHeading.heading())

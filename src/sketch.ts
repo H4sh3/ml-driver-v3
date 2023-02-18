@@ -28,10 +28,10 @@ export const sketch = (p: p5) => {
 
     const button = p.createButton("Stop training")
     button.position(10, 10)
-    const trackButton = p.createButton("Change track")
+    const trackButton = p.createButton("reset")
     trackButton.position(110, 10)
     trackButton.mousePressed(() => {
-      state.gym.environment.initRandomTrack()
+      state.gym.race.reset()
     })
 
     const startButton = p.createButton("Start")
@@ -39,7 +39,6 @@ export const sketch = (p: p5) => {
     startButton.mousePressed(() => {
       state.started = !state.started
     })
-    p.frameRate(60)
 
     state.gym.exploration(state.renderer)
   }

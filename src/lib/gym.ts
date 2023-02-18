@@ -2,7 +2,7 @@ import Vector from "./vector";
 import { Agent } from "./agent";
 import { Environment } from "./environment";
 import { Renderer } from "./render";
-import { flatten, mapValue, scale, rotate, translate } from "./helpers";
+import { flatten, mapValue, scale, rotate, translate, otherAgentAsInput } from "./helpers";
 
 import NeuralNetwork from "./nn";
 
@@ -39,6 +39,11 @@ export const getInputs = (environment: Environment, agent: Agent) => {
     return { inputs, checkpoints, rotated, translated }
 }
 
+interface MoveOp {
+    agent: Agent
+    move: Vector
+}
+
 class Race {
     agents: Agent[]
     neuralNets: NeuralNetwork[]
@@ -63,6 +68,93 @@ class Race {
         return failed || outOfTime
     }
 
+    handleCollisions() {
+        // collisions
+        const moveOps: MoveOp[] = []
+        for (let i = 0; i < this.agents.length; i++) {
+            for (let j = 0; j < this.agents.length; j++) {
+                if (i == j) continue
+
+                const a1 = this.agents[i]
+                const a2 = this.agents[j]
+
+                if (a1.pos.dist(a2.pos) > 5) continue
+
+                if (a1.vel.mag() > a2.vel.mag()) {
+                    if (moveOps.find(op => op.agent === a2)) continue
+                    moveOps.push({
+                        agent: a2,
+                        move: a2.pos.copy().sub(a1.pos).normalize().mult(15)
+                    })
+                } else {
+                    if (moveOps.find(op => op.agent === a1)) continue
+                    moveOps.push({
+                        agent: a1,
+                        move: a1.pos.copy().sub(a2.pos).normalize().mult(15)
+                    })
+                }
+            }
+        }
+
+        moveOps.forEach(op => {
+            op.agent.pos.add(op.move)
+        })
+    }
+
+    updateAgent(agent: Agent, neuralNet: NeuralNetwork) {
+
+        const { inputs, checkpoints, rotated } = getInputs(this.environment, agent)
+
+        const others = this.agents.filter(a => a != agent)
+
+        const otherPosInputs: number[] = []
+
+        others.forEach(other => {
+            const otherRel = otherAgentAsInput(agent.pos, agent.direction, other.pos)
+            const agentDetectRange = 50
+            if (otherRel.mag() < agentDetectRange) {
+                otherPosInputs.push(Math.abs(otherRel.x / agentDetectRange))
+                otherPosInputs.push(Math.abs(otherRel.y / agentDetectRange))
+            } else {
+                otherPosInputs.push(0)
+                otherPosInputs.push(0)
+            }
+        })
+
+        // for vis
+        // const activeCheckpoints = checkpoints
+        // const rotatedCheckpoints = rotated
+
+        let action = neuralNet.predict([...inputs, ...otherPosInputs])
+
+        let steeringChange = 0
+        let accChange = 0
+
+        if (action <= steeringActions.length - 1) {
+            steeringChange = steeringActions[action]
+        } else if (action > steeringActions.length - 1 && action < actions.length - 1) {
+            accChange = accActions[action - steeringActions.length]
+        }
+
+        agent.update(steeringChange, accChange)
+
+        // things that let the agent lose and stop the current round
+        const startPos = this.environment.checkpoints[this.environment.startCheckpoint]
+        const didNotMove = agent.pos.dist(startPos) < 50 && agent.score < 5 && this.step > 100
+        const collectedWrongCP = checkpoints.slice(1, checkpoints.length - 1).some(c => agent.pos.dist(c) < 40)
+        const leftCourse = this.environment.hasAgentLeftCourse(agent)
+
+        if (didNotMove || collectedWrongCP || leftCourse) {
+            agent.alive = false
+        }
+
+        // update score if agent is close to target
+        const reachedCheckpoint = agent.pos.dist(checkpoints[0]) < 40
+
+        if (reachedCheckpoint) {
+            agent.score++
+        }
+    }
 
     run() {
 
@@ -71,49 +163,10 @@ class Race {
             const agent = this.agents[i]
             const neuralNet = this.neuralNets[i]
 
-            const others = this.agents.filter(a => a != agent)
-
-            const { inputs, checkpoints, rotated } = getInputs(this.environment, agent)
-
-
-
-            // for vis
-            // const activeCheckpoints = checkpoints
-            // const rotatedCheckpoints = rotated
-
-            let action = neuralNet.predict(inputs)
-
-            let steeringChange = 0
-            let accChange = 0
-
-            if (action <= steeringActions.length - 1) {
-                steeringChange = steeringActions[action]
-            } else if (action > steeringActions.length - 1 && action < actions.length - 1) {
-                accChange = accActions[action - steeringActions.length]
-            } else {
-
-            }
-
-            agent.update(steeringChange, accChange)
-
-            // things that let the agent lose and stop the current round
-            const startPos = this.environment.checkpoints[this.environment.startCheckpoint]
-            const didNotMove = agent.pos.dist(startPos) < 50 && agent.score < 5 && this.step > 100
-            const collectedWrongCP = checkpoints.slice(1, checkpoints.length - 1).some(c => agent.pos.dist(c) < 40)
-            const leftCourse = this.environment.hasAgentLeftCourse(agent)
-
-            if (didNotMove || collectedWrongCP || leftCourse) {
-                agent.alive = false
-            }
-
-            // update score if agent is close to target
-            const reachedCheckpoint = agent.pos.dist(checkpoints[0]) < 40
-
-            if (reachedCheckpoint) {
-                agent.score++
-            }
-
+            this.updateAgent(agent, neuralNet)
         }
+
+        this.handleCollisions()
 
         this.step++
     }
@@ -169,7 +222,7 @@ export class Gym {
         this.epsilonMax = 0.5
         this.epsilonMin = 0.01
 
-        this.exploreEpoch = 500
+        this.exploreEpoch = 10000
         // race wrapper
 
         const neuralNetworks = []
@@ -226,6 +279,11 @@ export class Gym {
             this.scoreHistory.push(highscore)
 
             this.race.reset()
+        }
+
+        this.race.neuralNets = []
+        while (this.race.neuralNets.length < 4) {
+            this.race.neuralNets.push(this.bestBrain.copy())
         }
 
         renderer.renderScoreHistory(this.scoreHistory)
