@@ -16,7 +16,7 @@ export class Environment {
     startCheckpoint: number
     startRandom: boolean
 
-    constructor(startRandom: boolean) {
+    constructor(startRandom: boolean = false) {
         this.startRandom = startRandom
         this.checkpoints = []
     }

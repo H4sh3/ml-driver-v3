@@ -4,13 +4,11 @@ import { Environment } from "./environment";
 import { Renderer } from "./render";
 import { flatten, mapValue, scale, rotate, translate } from "./helpers";
 
-import { DQNSolver, DQNOpt, DQNEnv } from 'reinforce-js';
-
-import { deepqlearn } from "convnetjs-ts";
 import NeuralNetwork from "./nn";
 
 const inputCheckpoints = 5
-const inputNodes = (inputCheckpoints * 2)// + 1
+const otherAgentPositions = 2 * 3
+const inputNodes = (inputCheckpoints * 2) + otherAgentPositions// + 1
 
 export const steeringActions = [-16, -8, -5, -3, 0, 3, 5, 8, 16]
 export const accActions = [0, 0.1, .25, 0.5, 1, 1.5, 2, 3]
@@ -73,7 +71,11 @@ class Race {
             const agent = this.agents[i]
             const neuralNet = this.neuralNets[i]
 
+            const others = this.agents.filter(a => a != agent)
+
             const { inputs, checkpoints, rotated } = getInputs(this.environment, agent)
+
+
 
             // for vis
             // const activeCheckpoints = checkpoints

@@ -1,5 +1,3 @@
-import { accActions, steeringActions } from "./gym";
-import { mapValue } from "./helpers";
 import Vector from "./vector";
 
 export class Agent {
