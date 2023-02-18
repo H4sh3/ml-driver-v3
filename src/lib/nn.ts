@@ -72,7 +72,9 @@ class NeuralNetwork {
     output.map(this.activation_function.func);
 
     // Sending back to the caller!
-    return output.toArray();
+    const arr = output.toArray()
+    const max = Math.max(...arr)
+    return arr.indexOf(max);
   }
 
   setLearningRate(learning_rate = 0.1) {

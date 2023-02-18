@@ -7,7 +7,7 @@ export const getMaxDist = (vectors: Vector[], position: Vector) => {
     }, 0)
 }
 
-export const normalize = (vectors: Vector[]) => {
+export const scale = (vectors: Vector[]) => {
     const maxDist = getMaxDist(vectors, new Vector(0, 0))
     return vectors.map(c => c.copy()).map(c => c.div(maxDist))
 }
@@ -24,7 +24,7 @@ export const mapValue = (value: number, startMin: number, startMax: number, targ
     return (value - startMin) * (targetMax - targetMin) / (startMax - startMin) + targetMin;
 }
 
-export const transpose = (vectors: Vector[], center: Vector) => {
+export const translate = (vectors: Vector[], center: Vector) => {
     return vectors.map(c => c.copy()).map(c => c.sub(center))
 }
 

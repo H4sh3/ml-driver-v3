@@ -1,4 +1,4 @@
-import { flatten, getMaxDist, mapValue, normalize, rotate, transpose } from "../lib/helpers";
+import { flatten, getMaxDist, mapValue, scale, rotate, translate } from "../lib/helpers";
 import Vector from "../lib/vector";
 
 it('test helper maxDist', () => {
@@ -10,7 +10,7 @@ it('test helper maxDist', () => {
 
     expect(getMaxDist(vectors, position)).toBe(1020)
 
-    const normalized = normalize(vectors)
+    const normalized = scale(vectors)
     expect(normalized.every(n => n.x >= -1 && n.x <= 1 && n.y >= -1 && n.y <= 1)).toBeTruthy()
 
     const flat = flatten(vectors)
@@ -29,7 +29,7 @@ it('test vector transposed and rotate 1', () => {
     const pos = new Vector(100, 0)
     const c1 = new Vector(150, 0)
 
-    const transposed = transpose([c1], pos)
+    const transposed = translate([c1], pos)
     expect(transposed[0].x).toBe(50)
     expect(transposed[0].y).toBe(0)
 
@@ -50,7 +50,7 @@ it('test vector transposed and rotate 2', () => {
     const pos = new Vector(-100, 0)
     const c1 = new Vector(-100, -50)
 
-    const transposed = transpose([c1], pos)
+    const transposed = translate([c1], pos)
     expect(transposed[0].x).toBe(0)
     expect(transposed[0].y).toBe(-50)
 

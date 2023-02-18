@@ -82,6 +82,14 @@ export class Vector {
 
         return Math.abs(a1 - a2)
     }
+    /*
+        lerp(other: Vector) {
+            return new Vector((other.x + this.x) / 2, (other.y + this.y) / 2)
+        }
+    */
+    lerp(other: Vector, t: number) {
+        return new Vector(this.x + (other.x - this.x) * t, this.y + (other.y - this.y) * t);
+    }
 }
 
 export const isVector = (value: any): value is Vector => {
