@@ -62,14 +62,9 @@ export class Gym {
     scoreHistory: number[]
 
     // todo tune width height
-    env: DQNEnv
-    dqnSolver: DQNSolver
     mutateBrain: NeuralNetwork
     bestMutateBrain: NeuralNetwork
 
-    // deepq brain
-    deepqlearn: deepqlearn.Brain
-    trainingStopped: boolean
     epsilonMax: number
     epsilonMin: number
 
@@ -96,8 +91,6 @@ export class Gym {
         opt.setExperienceSize(1e6);
         opt.setReplaySteps(10);
 
-        this.dqnSolver = new DQNSolver(this.env, opt);
-
         this.bestScore = 0
 
         this.environment = new Environment(false)
@@ -109,18 +102,8 @@ export class Gym {
         this.reset()
         this.scoreHistory = []
 
-        const deepQOpts = {
-            start_learn_threshold: 100,
-            temporal_window: 1,
-            learning_steps_total: trainingEpochs * 50
-        }
-
-        this.deepqlearn = new deepqlearn.Brain(inputNodes, outputNodes, deepQOpts)
-
         this.mutateBrain = new NeuralNetwork(inputNodes, hiddenNodes, outputNodes)
         this.bestMutateBrain = this.mutateBrain.copy()
-
-        this.trainingStopped = false
 
         this.epsilonMax = 0.5
         this.epsilonMin = 0.01
@@ -134,10 +117,6 @@ export class Gym {
         return epsilon
     }
 
-    toggleTrainning() {
-        this.trainingStopped = !this.trainingStopped
-    }
-
     reset() {
         this.failed = false
         this.step = 0
@@ -148,7 +127,7 @@ export class Gym {
     exploration(renderer: Renderer) {
         // lets the agent explore the environment by somethimes picking random actions
 
-        const finished = this.epoch >= this.exploreEpoch || this.trainingStopped || this.bestScore > 200
+        const finished = this.epoch >= this.exploreEpoch || this.bestScore > 200
 
         if (!finished) {
             for (let i = 0; i < this.exploreEpoch / 100; i++) {
@@ -167,14 +146,12 @@ export class Gym {
 
                 }
 
-                if (trainingsMethod == TrainingsMethodEnum.Genetic) {
-                    if (newBestScore) {
-                        this.bestMutateBrain = this.mutateBrain.copy()
-                        this.mutateBrain.mutate(this.epsilonMutate())
-                    } else {
-                        this.mutateBrain = this.bestMutateBrain.copy()
-                        this.mutateBrain.mutate(this.epsilonMutate())
-                    }
+                if (newBestScore) {
+                    this.bestMutateBrain = this.mutateBrain.copy()
+                    this.mutateBrain.mutate(this.epsilonMutate())
+                } else {
+                    this.mutateBrain = this.bestMutateBrain.copy()
+                    this.mutateBrain.mutate(this.epsilonMutate())
                 }
 
                 this.scoreHistory.push(this.agent.score)
@@ -185,17 +162,7 @@ export class Gym {
             }
 
         } else {
-            // load a copy of the best performing NN
-            if (trainingsMethod == TrainingsMethodEnum.Genetic) {
-                this.mutateBrain = this.bestMutateBrain.copy()
-            }
-
-            // disable training and exploration
-            if (trainingsMethod == TrainingsMethodEnum.DQN) {
-                this.dqnSolver.setTrainingModeTo(false)
-                // this.deepqlearn.epsilon_test_time = 0
-                // this.deepqlearn.learning = false
-            }
+            this.mutateBrain = this.bestMutateBrain.copy()
         }
 
         renderer.renderScoreHistory(this.scoreHistory)
@@ -217,15 +184,7 @@ export class Gym {
         this.activeCheckpoints = checkpoints
         this.rotatedCheckpoints = rotated
 
-        let action = 0
-        if (trainingsMethod == TrainingsMethodEnum.DQN) {
-            // action = this.deepqlearn.forward(inputs)
-            action = this.dqnSolver.decide(inputs);
-        }
-        if (trainingsMethod == TrainingsMethodEnum.Genetic) {
-            action = this.mutateBrain.predict(inputs)
-        }
-
+        let action = this.mutateBrain.predict(inputs)
 
         let steeringChange = 0
         let accChange = 0
@@ -263,13 +222,6 @@ export class Gym {
         }
         if (leftCourse) {
             reward = -1
-        }
-
-        if (trainAgent) {
-            if (trainingsMethod == TrainingsMethodEnum.DQN) {
-                this.dqnSolver.learn(reward)
-                // this.deepqlearn.backward(reward)
-            }
         }
 
         this.step++

@@ -161,7 +161,6 @@ export class Environment {
     }
 
     // agents input based on passed score
-    // returns copies
     getCheckpoints(n: number, score: number) {
         const checkpoints = []
         for (let i = 0; i < n; i++) {
