@@ -19,7 +19,6 @@ const actions = [...steeringActions, ...accActions]
 const outputNodes = actions.length + 1 // last action is do nothing
 const hiddenNodes = Math.floor((inputNodes + outputNodes) / 2)
 
-const trainingEpochs = 150000
 
 enum TrainingsMethodEnum {
     Genetic = "Genetic",
@@ -42,6 +41,95 @@ export const getInputs = (environment: Environment, agent: Agent) => {
     return { inputs, checkpoints, rotated, translated }
 }
 
+class Race {
+    agents: Agent[]
+    neuralNets: NeuralNetwork[]
+    environment: Environment
+    step: number
+    maxSteps: number = 500
+
+    constructor(agents: Agent[], environment: Environment, neuralNets: NeuralNetwork[]) {
+        this.agents = agents
+        this.environment = environment
+        this.neuralNets = neuralNets
+        this.step = 0
+    }
+
+    finished() {
+        const failed = this.agents.every(a => !a.alive)
+        const outOfTime = this.step >= this.maxSteps
+
+        // if (failed) console.log("failed")
+        // if (outOfTime) console.log("outOfTime")
+
+        return failed || outOfTime
+    }
+
+
+    run() {
+
+        for (let i = 0; i < this.agents.length; i++) {
+
+            const agent = this.agents[i]
+            const neuralNet = this.neuralNets[i]
+
+            const { inputs, checkpoints, rotated } = getInputs(this.environment, agent)
+
+            // for vis
+            // const activeCheckpoints = checkpoints
+            // const rotatedCheckpoints = rotated
+
+            let action = neuralNet.predict(inputs)
+
+            let steeringChange = 0
+            let accChange = 0
+
+            if (action <= steeringActions.length - 1) {
+                steeringChange = steeringActions[action]
+            } else if (action > steeringActions.length - 1 && action < actions.length - 1) {
+                accChange = accActions[action - steeringActions.length]
+            } else {
+
+            }
+
+            agent.update(steeringChange, accChange)
+
+            // things that let the agent lose and stop the current round
+            const startPos = this.environment.checkpoints[this.environment.startCheckpoint]
+            const didNotMove = agent.pos.dist(startPos) < 50 && agent.score < 5 && this.step > 100
+            const collectedWrongCP = checkpoints.slice(1, checkpoints.length - 1).some(c => agent.pos.dist(c) < 40)
+            const leftCourse = this.environment.hasAgentLeftCourse(agent)
+
+            if (didNotMove || collectedWrongCP || leftCourse) {
+                agent.alive = false
+            }
+
+            // update score if agent is close to target
+            const reachedCheckpoint = agent.pos.dist(checkpoints[0]) < 40
+
+            if (reachedCheckpoint) {
+                agent.score++
+            }
+
+        }
+
+        this.step++
+    }
+
+    reset() {
+        this.step = 0
+        const { startPositions, startDir } = this.environment.getStartSettings()
+        this.agents.sort((a, b) => 0.5 - Math.random());
+        for (let i = 0; i < this.agents.length; i++) {
+            this.agents[i].alive = true
+            this.agents[i].score = 0
+            this.agents[i].pos = startPositions[i].copy()
+            this.agents[i].direction = startDir.copy()
+        }
+    }
+
+}
+
 
 export class Gym {
     agent: Agent
@@ -62,165 +150,83 @@ export class Gym {
     scoreHistory: number[]
 
     // todo tune width height
-    mutateBrain: NeuralNetwork
-    bestMutateBrain: NeuralNetwork
+    bestBrain: NeuralNetwork
 
     epsilonMax: number
     epsilonMin: number
 
+    race: Race
+
     constructor() {
 
-        this.maxSteps = 500
-
-        this.epoch = 1
-        this.exploreEpoch = trainingEpochs // 200k got 100% hit rate
-
-        this.env = new DQNEnv(inputNodes, outputNodes, inputNodes, outputNodes)
-
-        const opt = new DQNOpt();
-        opt.setTrainingMode(true);
-        opt.setNumberOfHiddenUnits([hiddenNodes]);  // mind the array here, currently only one layer supported! Preparation for DNN in progress...
-        opt.setEpsilonDecay(1, 0.05, trainingEpochs * 10);
-        opt.setEpsilon(0);
-        opt.setGamma(0.8);
-        opt.setAlpha(0.015);
-        opt.setLossClipping(false);
-        opt.setLossClamp(1);
-        opt.setRewardClipping(false);
-        opt.setRewardClamp(5);
-        opt.setExperienceSize(1e6);
-        opt.setReplaySteps(10);
-
         this.bestScore = 0
-
-        this.environment = new Environment(false)
-        // this.environment.initCircleTrack()
-        // this.environment.initSinTrack()
-        // this.environment.initRandomTrack()
-        this.environment.initBPark()
-
-        this.reset()
         this.scoreHistory = []
 
-        this.mutateBrain = new NeuralNetwork(inputNodes, hiddenNodes, outputNodes)
-        this.bestMutateBrain = this.mutateBrain.copy()
+        this.bestBrain = new NeuralNetwork(inputNodes, hiddenNodes, outputNodes)
 
         this.epsilonMax = 0.5
         this.epsilonMin = 0.01
+
+        this.exploreEpoch = 500
+        // race wrapper
+
+        const neuralNetworks = []
+        const agents = []
+
+        const env = new Environment(false)
+        env.initBPark()
+        const { startPositions, startDir } = env.getStartSettings()
+
+        for (let i = 0; i < 4; i++) {
+            neuralNetworks.push(new NeuralNetwork(inputNodes, hiddenNodes, outputNodes))
+            agents.push(new Agent(startPositions[i], startDir))
+        }
+
+        this.race = new Race(agents, env, neuralNetworks)
     }
 
-    epsilonMutate() {
-        const epsilon = this.epsilonMax - ((this.epsilonMax - this.epsilonMin) * (this.epoch / this.exploreEpoch));
+    epsilonMutate(epoch: number) {
+        const epsilon = this.epsilonMax - ((this.epsilonMax - this.epsilonMin) * (epoch / this.exploreEpoch));
         if (this.epoch % 1000 == 0) {
             console.log(epsilon)
         }
         return epsilon
     }
 
-    reset() {
-        this.failed = false
-        this.step = 0
-        const { startPos, startDir } = this.environment.getStartSettings()
-        this.agent = new Agent(startPos, startDir)
-    }
-
     exploration(renderer: Renderer) {
         // lets the agent explore the environment by somethimes picking random actions
 
-        const finished = this.epoch >= this.exploreEpoch || this.bestScore > 200
+        for (let epoch = 0; epoch < this.exploreEpoch; epoch++) {
 
-        if (!finished) {
-            for (let i = 0; i < this.exploreEpoch / 100; i++) {
-
-                while (!this.finished()) {
-                    this.run()
-                }
-
-                const newBestScore = this.agent.score > this.bestScore
-                if (newBestScore) {
-                    this.bestScore = this.agent.score
-                    console.log(`Exploration score: ${this.agent.score} in ${this.epoch}/${this.exploreEpoch}`)
-
-                }
-
-                if (newBestScore) {
-                    this.bestMutateBrain = this.mutateBrain.copy()
-                    this.mutateBrain.mutate(this.epsilonMutate())
-                } else {
-                    this.mutateBrain = this.bestMutateBrain.copy()
-                    this.mutateBrain.mutate(this.epsilonMutate())
-                }
-
-                this.scoreHistory.push(this.agent.score)
-
-                this.epoch++
-                this.reset()
-
+            while (!this.race.finished()) {
+                this.race.run()
             }
 
-        } else {
-            this.mutateBrain = this.bestMutateBrain.copy()
+
+            const highscore = Math.max(...this.race.agents.map(a => a.score))
+            const bestIndex = this.race.agents.map(a => a.score).indexOf(highscore)
+            const bestNeuralnet = this.race.neuralNets[bestIndex]
+
+            if (highscore > this.bestScore) {
+                this.bestScore = highscore
+                this.bestBrain = bestNeuralnet
+                console.log(`Exploration score: ${highscore} in ${epoch}/${this.exploreEpoch}`)
+            }
+
+            this.race.neuralNets = [this.bestBrain.copy()]
+
+            while (this.race.neuralNets.length < this.race.agents.length) {
+                const brain = this.bestBrain.copy()
+                brain.mutate(this.epsilonMutate(epoch))
+                this.race.neuralNets.push(brain)
+            }
+
+            this.scoreHistory.push(highscore)
+
+            this.race.reset()
         }
 
         renderer.renderScoreHistory(this.scoreHistory)
-
-        return finished
-
-    }
-
-    finished() {
-        const failed = this.failed
-        const outOfTime = this.step >= this.maxSteps
-        const leftCourse = this.environment.hasAgentLeftCourse(this.agent)
-        return failed || outOfTime || leftCourse
-    }
-
-
-    run() {
-        const { inputs, checkpoints, rotated } = getInputs(this.environment, this.agent)
-        this.activeCheckpoints = checkpoints
-        this.rotatedCheckpoints = rotated
-
-        let action = this.mutateBrain.predict(inputs)
-
-        let steeringChange = 0
-        let accChange = 0
-
-        if (action <= steeringActions.length - 1) {
-            steeringChange = steeringActions[action]
-        } else if (action > steeringActions.length - 1 && action < actions.length - 1) {
-            accChange = accActions[action - steeringActions.length]
-        } else {
-
-        }
-
-        this.agent.update(steeringChange, accChange)
-
-        // things that let the agent lose and stop the current round
-        const startPos = this.environment.checkpoints[this.environment.startCheckpoint]
-        const didNotMove = this.agent.pos.dist(startPos) < 50 && this.agent.score < 5 && this.step > 100
-        const collectedWrongCP = checkpoints.slice(1, checkpoints.length - 1).some(c => this.agent.pos.dist(c) < 40)
-        const leftCourse = this.environment.hasAgentLeftCourse(this.agent)
-        this.failed = didNotMove || collectedWrongCP || leftCourse
-
-        // update score if agent is close to target
-        const reachedCheckpoint = this.agent.pos.dist(checkpoints[0]) < 40
-        let reward = -0.1
-        if (reachedCheckpoint) {
-            this.agent.score++
-            reward = this.agent.score
-        }
-
-        if (didNotMove) {
-            reward = -5
-        }
-        if (collectedWrongCP) {
-            reward = -5
-        }
-        if (leftCourse) {
-            reward = -1
-        }
-
-        this.step++
+        console.log("exploration finished!")
     }
 }

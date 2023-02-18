@@ -155,9 +155,16 @@ export class Environment {
 
         const difference = c1.copy().sub(c2)
 
+        const startPositions = []
         const startPos = c1.copy().add(difference.mult(0.5))
+
+        startPositions.push(startPos.copy().add(new Vector(-10, -10)))
+        startPositions.push(startPos.copy().add(new Vector(10, -10)))
+        startPositions.push(startPos.copy().add(new Vector(-10, 10)))
+        startPositions.push(startPos.copy().add(new Vector(10, 10)))
+
         const startDir = c1.copy().sub(startPos).normalize()
-        return { startPos, startDir }
+        return { startPositions, startDir }
     }
 
     // agents input based on passed score

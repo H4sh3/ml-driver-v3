@@ -8,6 +8,7 @@ export class Agent {
     vel: Vector
     acc: number
     score: number
+    alive: boolean = true
 
     constructor(startPos: Vector, startDirection: Vector) {
         this.pos = startPos.copy()
