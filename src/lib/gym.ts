@@ -8,22 +8,15 @@ import NeuralNetwork from "./nn";
 
 const inputCheckpoints = 5
 const otherAgentPositions = 2 * 3
-const inputNodes = (inputCheckpoints * 2) + otherAgentPositions// + 1
+const velocityInput = 1
+const inputNodes = (inputCheckpoints * 2) + otherAgentPositions + velocityInput// + 1
 
-export const steeringActions = [-16, -8, -5, -3, 0, 3, 5, 8, 16]
+export const steeringActions = [-8, -5, -3, 0, 3, 5, 8]
 export const accActions = [0, 0.1, .25, 0.5, 1, 1.5, 2, 3]
 
 const actions = [...steeringActions, ...accActions]
 const outputNodes = actions.length + 1 // last action is do nothing
 const hiddenNodes = Math.floor((inputNodes + outputNodes) / 2)
-
-
-enum TrainingsMethodEnum {
-    Genetic = "Genetic",
-    DQN = "DQN"
-}
-const trainingsMethod: TrainingsMethodEnum = TrainingsMethodEnum.Genetic
-console.log(`Trainings method: ${trainingsMethod}`)
 
 export const getInputs = (environment: Environment, agent: Agent) => {
     const checkpoints = environment.getCheckpoints(inputCheckpoints, agent.score)
@@ -44,12 +37,17 @@ interface MoveOp {
     move: Vector
 }
 
+interface BrainScore {
+    nn: NeuralNetwork
+    score: number
+}
+
 class Race {
     agents: Agent[]
     neuralNets: NeuralNetwork[]
     environment: Environment
     step: number
-    maxSteps: number = 500
+    maxSteps: number = 1000
 
     constructor(agents: Agent[], environment: Environment, neuralNets: NeuralNetwork[]) {
         this.agents = agents
@@ -61,10 +59,6 @@ class Race {
     finished() {
         const failed = this.agents.every(a => !a.alive)
         const outOfTime = this.step >= this.maxSteps
-
-        // if (failed) console.log("failed")
-        // if (outOfTime) console.log("outOfTime")
-
         return failed || outOfTime
     }
 
@@ -78,26 +72,29 @@ class Race {
                 const a1 = this.agents[i]
                 const a2 = this.agents[j]
 
-                if (a1.pos.dist(a2.pos) > 5) continue
+                if (a1.pos.dist(a2.pos) > 2) continue
 
-                if (a1.vel.mag() > a2.vel.mag()) {
+                const a1VelMag = a1.vel.mag()
+                const a2VelMag = a2.vel.mag()
+
+                if (a1VelMag > a2.vel.mag()) {
                     if (moveOps.find(op => op.agent === a2)) continue
                     moveOps.push({
                         agent: a2,
-                        move: a2.pos.copy().sub(a1.pos).normalize().mult(15)
+                        move: a2.pos.copy().sub(a1.pos).normalize().mult(a1VelMag)
                     })
                 } else {
                     if (moveOps.find(op => op.agent === a1)) continue
                     moveOps.push({
                         agent: a1,
-                        move: a1.pos.copy().sub(a2.pos).normalize().mult(15)
+                        move: a1.pos.copy().sub(a2.pos).normalize().mult(a2VelMag)
                     })
                 }
             }
         }
 
         moveOps.forEach(op => {
-            op.agent.pos.add(op.move)
+            op.agent.vel.add(op.move)
         })
     }
 
@@ -109,10 +106,13 @@ class Race {
 
         const otherPosInputs: number[] = []
 
+        agent.othersPosRel = []
+
         others.forEach(other => {
             const otherRel = otherAgentAsInput(agent.pos, agent.direction, other.pos)
-            const agentDetectRange = 50
-            if (otherRel.mag() < agentDetectRange) {
+            const agentDetectRange = 150
+            if (agent.pos.dist(other.pos) < agentDetectRange) {
+                agent.othersPosRel.push(otherRel.copy())
                 otherPosInputs.push(Math.abs(otherRel.x / agentDetectRange))
                 otherPosInputs.push(Math.abs(otherRel.y / agentDetectRange))
             } else {
@@ -121,11 +121,9 @@ class Race {
             }
         })
 
-        // for vis
-        // const activeCheckpoints = checkpoints
-        // const rotatedCheckpoints = rotated
+        const velMagInput = mapValue(agent.vel.mag(), 0, 20, 0, 1)
 
-        let action = neuralNet.predict([...inputs, ...otherPosInputs])
+        let action = neuralNet.predict([velMagInput, ...inputs, ...otherPosInputs])
 
         let steeringChange = 0
         let accChange = 0
@@ -143,8 +141,9 @@ class Race {
         const didNotMove = agent.pos.dist(startPos) < 50 && agent.score < 5 && this.step > 100
         const collectedWrongCP = checkpoints.slice(1, checkpoints.length - 1).some(c => agent.pos.dist(c) < 40)
         const leftCourse = this.environment.hasAgentLeftCourse(agent)
+        //const spinsOnPlace = agent.steerSum > 1000
 
-        if (didNotMove || collectedWrongCP || leftCourse) {
+        if (didNotMove || collectedWrongCP || leftCourse) { // || spinsOnPlace) {
             agent.alive = false
         }
 
@@ -159,8 +158,9 @@ class Race {
     run() {
 
         for (let i = 0; i < this.agents.length; i++) {
-
             const agent = this.agents[i]
+            if (!agent.alive) continue
+
             const neuralNet = this.neuralNets[i]
 
             this.updateAgent(agent, neuralNet)
@@ -173,18 +173,31 @@ class Race {
 
     reset() {
         this.step = 0
-        const { startPositions, startDir } = this.environment.getStartSettings()
-        this.agents.sort((a, b) => 0.5 - Math.random());
-        for (let i = 0; i < this.agents.length; i++) {
-            this.agents[i].alive = true
-            this.agents[i].score = 0
-            this.agents[i].pos = startPositions[i].copy()
-            this.agents[i].direction = startDir.copy()
-        }
+        const { startPositions } = this.environment.getStartSettings()
+        startPositions.sort((a, b) => 0.5 - Math.random());
+        this.agents.forEach((a, i) => {
+            a.startPos = startPositions[i]
+            a.reset()
+        })
     }
 
 }
 
+const getNewRace = () => {
+    const neuralNetworks = []
+    const agents = []
+
+    const env = new Environment(false)
+    env.initBPark()
+
+    const { startPositions, startDir } = env.getStartSettings()
+
+    for (let i = 0; i < 4; i++) {
+        neuralNetworks.push(new NeuralNetwork(inputNodes, hiddenNodes, outputNodes))
+        agents.push(new Agent(startPositions[i], startDir))
+    }
+    return new Race(agents, env, neuralNetworks)
+}
 
 export class Gym {
     agent: Agent
@@ -205,39 +218,27 @@ export class Gym {
     scoreHistory: number[]
 
     // todo tune width height
-    bestBrain: NeuralNetwork
+    bestBrains: NeuralNetwork[]
 
     epsilonMax: number
     epsilonMin: number
 
-    race: Race
+    trainingPhase: number
+
+    races: Race[] = []
 
     constructor() {
-
         this.bestScore = 0
         this.scoreHistory = []
-
-        this.bestBrain = new NeuralNetwork(inputNodes, hiddenNodes, outputNodes)
-
         this.epsilonMax = 0.5
         this.epsilonMin = 0.01
+        this.exploreEpoch = 1000
+        this.bestBrains = [new NeuralNetwork(inputNodes, hiddenNodes, outputNodes)]
+        this.trainingPhase = 0
 
-        this.exploreEpoch = 10000
-        // race wrapper
-
-        const neuralNetworks = []
-        const agents = []
-
-        const env = new Environment(false)
-        env.initBPark()
-        const { startPositions, startDir } = env.getStartSettings()
-
-        for (let i = 0; i < 4; i++) {
-            neuralNetworks.push(new NeuralNetwork(inputNodes, hiddenNodes, outputNodes))
-            agents.push(new Agent(startPositions[i], startDir))
+        while (this.races.length < 10) {
+            this.races.push(getNewRace())
         }
-
-        this.race = new Race(agents, env, neuralNetworks)
     }
 
     epsilonMutate(epoch: number) {
@@ -253,37 +254,63 @@ export class Gym {
 
         for (let epoch = 0; epoch < this.exploreEpoch; epoch++) {
 
-            while (!this.race.finished()) {
-                this.race.run()
-            }
+            // run all races
+            this.races.forEach(race => {
+                while (!race.finished()) {
+                    race.run()
+                }
+            })
 
 
-            const highscore = Math.max(...this.race.agents.map(a => a.score))
-            const bestIndex = this.race.agents.map(a => a.score).indexOf(highscore)
-            const bestNeuralnet = this.race.neuralNets[bestIndex]
+            const brainScores: BrainScore[] = []
 
+            let allVelocityMagnitudes: number[] = []
+            this.races.forEach(race => {
+                const highscore = Math.max(...race.agents.map(a => a.score))
+                const bestIndex = race.agents.map(a => a.score).indexOf(highscore)
+                const bestNeuralnet = race.neuralNets[bestIndex]
+                brainScores.push({ nn: bestNeuralnet, score: highscore })
+                allVelocityMagnitudes = allVelocityMagnitudes.concat(race.agents.map(a => a.maxVelMag))
+            })
+
+            // populate races for next epoch
+            brainScores.sort((a, b) => a.score > b.score ? -1 : 1)
+
+            const highscore = brainScores[0].score
             if (highscore > this.bestScore) {
                 this.bestScore = highscore
-                this.bestBrain = bestNeuralnet
+                this.bestBrains = [brainScores[0].nn, ...this.bestBrains]
                 console.log(`Exploration score: ${highscore} in ${epoch}/${this.exploreEpoch}`)
             }
-
-            this.race.neuralNets = [this.bestBrain.copy()]
-
-            while (this.race.neuralNets.length < this.race.agents.length) {
-                const brain = this.bestBrain.copy()
-                brain.mutate(this.epsilonMutate(epoch))
-                this.race.neuralNets.push(brain)
-            }
-
             this.scoreHistory.push(highscore)
 
-            this.race.reset()
+            // keep best
+            const race = this.races[0]
+            race.reset()
+            race.neuralNets = []
+            race.neuralNets.push(this.bestBrains[0].copy())
+            race.neuralNets.push(this.bestBrains[0].copy())
+            race.neuralNets.push(this.bestBrains[0].copy().mutate(this.epsilonMutate(epoch)))
+            race.neuralNets.push(this.bestBrains[0].copy().mutate(this.epsilonMutate(epoch)))
+
+            const a1 = brainScores[0]
+            const a2 = brainScores[1]
+            for (let i = 1; i < this.races.length; i++) {
+                const race = this.races[i]
+                race.reset()
+                race.neuralNets = []
+                race.neuralNets.push(a1.nn.copy())
+                race.neuralNets.push(a2.nn.copy())
+                race.neuralNets.push(a1.nn.copy().mutate(this.epsilonMutate(epoch)))
+                race.neuralNets.push(a2.nn.copy().mutate(this.epsilonMutate(epoch)))
+            }
+
         }
 
-        this.race.neuralNets = []
-        while (this.race.neuralNets.length < 4) {
-            this.race.neuralNets.push(this.bestBrain.copy())
+        this.races[0].maxSteps = 2000
+        this.races[0].neuralNets = []
+        for (let i = 0; i < 4; i++) {
+            this.races[0].neuralNets.push(this.bestBrains[i].copy())
         }
 
         renderer.renderScoreHistory(this.scoreHistory)

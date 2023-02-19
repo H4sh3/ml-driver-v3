@@ -11,7 +11,7 @@ function getRandomInt(min: number, max: number): number {
 export class Environment {
     numCheckpoints: number
     checkpoints: Vector[]
-    maxDist = 100
+    maxDist = 75
     center = new Vector(0, 0)
     startCheckpoint: number
     startRandom: boolean
@@ -57,8 +57,8 @@ export class Environment {
     initBPark() {
         // left
         const h = 600
-        const w = 100
-        const numCornerCP = 10
+        const w = 200
+        const numCornerCP = 16
         const numCornerCPHalf = numCornerCP / 2
 
         const numCP = 20
@@ -158,10 +158,10 @@ export class Environment {
         const startPositions = []
         const startPos = c1.copy().add(difference.mult(0.5))
 
-        startPositions.push(startPos.copy().add(new Vector(-10, -10)))
-        startPositions.push(startPos.copy().add(new Vector(10, -10)))
-        startPositions.push(startPos.copy().add(new Vector(-10, 10)))
-        startPositions.push(startPos.copy().add(new Vector(10, 10)))
+        startPositions.push(startPos.copy().add(new Vector(10, 40)))
+        startPositions.push(startPos.copy().add(new Vector(-10, 20)))
+        startPositions.push(startPos.copy().add(new Vector(10, 0)))
+        startPositions.push(startPos.copy().add(new Vector(-10, -20)))
 
         const startDir = c1.copy().sub(startPos).normalize()
         return { startPositions, startDir }

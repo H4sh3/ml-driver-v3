@@ -54,12 +54,15 @@ export const sketch = (p: p5) => {
 
       if (state.started && state.renderer instanceof Renderer && state.gym instanceof Gym) {
         p.background(255)
-        state.gym.race.run()
-        state.renderer.renderEnvironment(state.gym.race.environment)
 
-        for (let agent of state.gym.race.agents) {
-          state.renderer.renderAgent(agent)
-        }
+        if (state.gym.races[0].finished()) state.gym.races[0].reset()
+
+        state.gym.races[0].run()
+        state.renderer.renderEnvironment(state.gym.races[0].environment)
+
+        state.gym.races[0].agents.forEach((agent, i) => {
+          state.renderer.renderAgent(agent, i)
+        })
         // state.renderer.renderGym(state.gym)
       } else {
         p.background(255)

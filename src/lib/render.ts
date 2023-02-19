@@ -56,17 +56,30 @@ export class Renderer {
         this.p5.pop()
     }
 
-    renderAgent = (agent: Agent) => {
+    renderAgent = (agent: Agent, i: number) => {
         this.p5.push()
         this.translate()
-        this.p5.text(agent.score, 0, -10)
-        this.p5.text(agent.vel.mag().toFixed(2), 0, -20)
+        this.p5.text(agent.score, 50, -10 * i)
         this.p5.line(agent.pos.x, agent.pos.y, agent.pos.x + agent.direction.x * 15, agent.pos.y + agent.direction.y * 15)
         this.p5.pop()
 
 
         this.p5.push()
         this.p5.translate(agent.pos.x + this.p5.width / 2, agent.pos.y + this.p5.height / 2)
+
+
+        this.p5.fill(255, 0, 0)
+        agent.othersPosRel.forEach(others => {
+            const tmp = others.copy().rotate(agent.direction.heading())
+            this.p5.rect(tmp.x, tmp.y, 5, 5)
+        })
+
+        if (agent.alive) {
+            this.p5.fill(0, 255, 0)
+        } else {
+            this.p5.fill(255, 0, 0)
+        }
+        this.p5.text(agent.steerSum, 20, 0)
         this.p5.push()
         this.p5.rotate(agent.direction.heading())
         this.p5.rect(-5, -2.5, 10, 4)
