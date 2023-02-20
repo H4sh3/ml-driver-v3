@@ -11,7 +11,11 @@ export class Agent {
     alive: boolean
     steerSum: number
     maxVelMag: number
-    othersPosRel: Vector[]
+
+    hasBoosterPowerup: boolean
+    boosterTicks: number
+    hasRocketPowerup: boolean
+
 
     constructor(startPos: Vector, startDirection: Vector) {
         this.startPos = startPos.copy()
@@ -26,27 +30,41 @@ export class Agent {
         this.acc = 0
         this.score = 0
         this.alive = true
-        this.steerSum = 0
         this.maxVelMag = 0
+        this.hasRocketPowerup = false
+        this.hasBoosterPowerup = false
+        this.boosterTicks = 0
+    }
+
+    activateBooster() {
+        if (!this.hasBoosterPowerup) return
+
+        this.hasBoosterPowerup = false
+        this.boosterTicks = 150
     }
 
     update(steeringChange: number, accChange: number) {
-        // steering
-        this.steerSum += steeringChange
         this.direction.rotate(steeringChange)
 
-        const newAcc = this.acc + accChange
+        const boostActive = this.boosterTicks > 0
+
+        const newAcc = this.acc + accChange + (boostActive ? 1 : 0)
         if (newAcc < 1 && newAcc > 0) {
             this.acc = newAcc
         }
+
         const tmpAcc = this.direction.copy().mult(this.acc)
 
         this.vel.add(tmpAcc)
         this.vel.div(1.15)
+
+
         this.pos.add(this.vel)
 
         if (this.vel.mag() > this.maxVelMag) {
             this.maxVelMag = this.vel.mag()
         }
+
+        this.boosterTicks -= 1
     }
 }

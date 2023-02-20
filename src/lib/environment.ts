@@ -8,6 +8,27 @@ function getRandomInt(min: number, max: number): number {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+export enum PowerupType {
+    Rocket,
+    Booster
+}
+
+export class Powerup {
+    pos: Vector
+    pType: PowerupType
+    coolDown: number
+
+    constructor(pos: Vector, pType: PowerupType) {
+        this.pos = pos
+        this.pType = pType
+        this.coolDown = 0
+    }
+
+    isAvailable() {
+        return this.coolDown <= 0
+    }
+}
+
 export class Environment {
     numCheckpoints: number
     checkpoints: Vector[]
@@ -15,6 +36,7 @@ export class Environment {
     center = new Vector(0, 0)
     startCheckpoint: number
     startRandom: boolean
+    powerups: Powerup[]
 
     constructor(startRandom: boolean = false) {
         this.startRandom = startRandom
@@ -89,60 +111,18 @@ export class Environment {
             this.checkpoints.push(cp)
         }
         this.numCheckpoints = this.checkpoints.length
-    }
 
-    initRandomTrack() {
+        // add powerups 
+        const yPos = (h / 2) - 30
+        const dist = 30
+        this.powerups = []
+        this.powerups.push(new Powerup(new Vector(-dist, -yPos), PowerupType.Booster))
+        this.powerups.push(new Powerup(new Vector(0, -yPos), PowerupType.Booster))
+        this.powerups.push(new Powerup(new Vector(dist, -yPos), PowerupType.Booster))
 
-        this.checkpoints = []
-        //circle
-
-        const n = 10
-        let prevX = 150
-        for (let i = 0; i < n; i++) {
-            const x = prevX + getRandomInt(-125, 125)
-            this.checkpoints.push(new Vector(x, 0).rotate((360 / n) * i))
-            prevX = x
-        }
-
-        /*
-  const n = 10;
-  while (this.checkpoints.length < n) {
-      const x = getRandomInt(-250, 250)
-      const y = getRandomInt(-250, 250)
-      const newCP = new Vector(x, y)
-
-      // only checkpoints with min dist to all others
-      if (!this.checkpoints.find(cp => newCP.dist(cp) < 100)) {
-          this.checkpoints.push(newCP)
-      }
-  }
-*/
-        const desiredDistance = 50;
-
-        let finished = false
-        let iterations = 0
-        while (!finished && iterations < 100000) {
-            iterations++
-            for (let i = 0; i < this.checkpoints.length; i++) {
-                const el1 = this.checkpoints[i]
-                let el2 = this.checkpoints[i + 1]
-                if (i + 1 == this.checkpoints.length) {
-                    el2 = this.checkpoints[0]
-                }
-                let distance = el1.dist(el2);
-
-                while (distance > desiredDistance) {
-                    let newVector = el1.lerp(el2, desiredDistance / distance);
-                    this.checkpoints.splice(i + 1, 0, newVector);
-                    distance = el1.dist(el2)
-                    break
-                }
-
-
-            }
-            finished = true
-        }
-        this.numCheckpoints = this.checkpoints.length
+        this.powerups.push(new Powerup(new Vector(-dist + w, yPos), PowerupType.Booster))
+        this.powerups.push(new Powerup(new Vector(0 + w, yPos), PowerupType.Booster))
+        this.powerups.push(new Powerup(new Vector(dist + w, yPos), PowerupType.Booster))
     }
 
     getStartSettings() {
@@ -184,5 +164,9 @@ export class Environment {
     hasAgentLeftCourse(agent: Agent) {
         const nextCheckpoint = this.getNextCheckpoint(agent)
         return nextCheckpoint.dist(agent.pos) > this.maxDist
+    }
+
+    updatePowerups() {
+        this.powerups.filter(p => p.coolDown > 0).forEach(p => p.coolDown -= 1)
     }
 }

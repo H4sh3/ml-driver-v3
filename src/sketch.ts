@@ -25,21 +25,6 @@ export const sketch = (p: p5) => {
     p.createCanvas(750, 1000)
     state.gym = new Gym()
     state.renderer = new Renderer(p)
-
-    const button = p.createButton("Stop training")
-    button.position(10, 10)
-    const trackButton = p.createButton("reset")
-    trackButton.position(110, 10)
-    trackButton.mousePressed(() => {
-      state.gym.race.reset()
-    })
-
-    const startButton = p.createButton("Start")
-    startButton.position(210, 10)
-    startButton.mousePressed(() => {
-      state.started = !state.started
-    })
-
     state.gym.exploration(state.renderer)
   }
 
@@ -49,7 +34,7 @@ export const sketch = (p: p5) => {
 
     if (false) {
       p.background(255)
-      state.renderer.renderEnvironment(state.gym.environment)
+      state.renderer.renderEnvironment(state.gym.races[0].environment)
     } else {
 
       if (state.started && state.renderer instanceof Renderer && state.gym instanceof Gym) {

@@ -41,7 +41,6 @@ export class Renderer {
     renderEnvironment = (env: Environment) => {
         this.p5.push()
         this.translate()
-
         for (let i = 1; i < env.checkpoints.length; i++) {
             const c1 = env.checkpoints[i - 1]
             const c2 = env.checkpoints[i]
@@ -52,6 +51,15 @@ export class Renderer {
         const last = env.checkpoints[env.checkpoints.length - 1]
         const first = env.checkpoints[0]
         this.p5.line(last.x, last.y, first.x, first.y)
+
+        // powerups
+
+        env.powerups.forEach(p => {
+            if (p.isAvailable()) {
+                this.p5.fill(0, 0, 255)
+                this.p5.ellipse(p.pos.x, p.pos.y, 4, 4)
+            }
+        })
 
         this.p5.pop()
     }
@@ -67,23 +75,21 @@ export class Renderer {
         this.p5.push()
         this.p5.translate(agent.pos.x + this.p5.width / 2, agent.pos.y + this.p5.height / 2)
 
-
-        this.p5.fill(255, 0, 0)
-        agent.othersPosRel.forEach(others => {
-            const tmp = others.copy().rotate(agent.direction.heading())
-            this.p5.rect(tmp.x, tmp.y, 5, 5)
-        })
-
         if (agent.alive) {
             this.p5.fill(0, 255, 0)
         } else {
             this.p5.fill(255, 0, 0)
         }
-        this.p5.text(agent.steerSum, 20, 0)
+
+        if (agent.boosterTicks > 0) {
+            this.p5.ellipse(0, 0, 10, 10)
+        }
+
         this.p5.push()
         this.p5.rotate(agent.direction.heading())
         this.p5.rect(-5, -2.5, 10, 4)
         this.p5.pop()
+
         this.p5.pop()
     }
 
