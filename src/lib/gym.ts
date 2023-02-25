@@ -15,12 +15,12 @@ const velocityInput = 1
 const powerupPositionInputs = 2 * 6
 const hasPowerupInputs = 2
 const boosActive = 1
-const inputNodes = (inputCheckpoints * 2) + otherAgentPositions + velocityInput + powerupPositionInputs + hasPowerupInputs + boosActive
+const inputNodes = (inputCheckpoints * 2) + velocityInput + otherAgentPositions + powerupPositionInputs + hasPowerupInputs + boosActive
 
 export const steeringActions = [-8, -5, -3, 0, 3, 5, 8]
-export const accActions = [0, 0.1, .25, 0.5, 1, 1.5, 2, 3]
+export const accActions = [0, 0.1, .25, 0.5, 1, 1.5, 2]
 
-const actions = [...steeringActions, ...accActions, 0, 0] // two more for use of powerups
+const actions = [...steeringActions, ...accActions, 0] // two more for use of powerups
 const outputNodes = actions.length + 1 // last action is do nothing
 const hiddenNodes = Math.floor((inputNodes + outputNodes) / 2)
 
@@ -87,6 +87,8 @@ class Race {
     step: number
     maxSteps: number = 1000
 
+    maxVelMag = 1
+
     constructor(agents: Agent[], environment: Environment, neuralNets: NeuralNetwork[]) {
         this.agents = agents
         this.environment = environment
@@ -142,20 +144,24 @@ class Race {
         const others = this.agents.filter(a => a != agent)
         const otherPosInputs = otherAgentsToInput(agent, others)
         const powerUpsAsInput = powerupsToInput(agent, this.environment.powerups)
-        const agentHasPowers = [agent.hasBoosterPowerup ? 1 : 0, agent.hasRocketPowerup ? 1 : 0]
-        const velMagInput = mapValue(agent.vel.mag(), 0, 25, 0, 1)
+        const agentHasPowers = [agent.hasBoosterPowerup ? 1 : 0]//, agent.hasRocketPowerup ? 1 : 0]
+        const velMagInput = mapValue(agent.vel.mag(), 0, this.maxVelMag, 0, 1)
 
-        let action = neuralNet.predict([velMagInput, ...inputs, ...otherPosInputs, ...powerUpsAsInput, ...agentHasPowers, agent.boosterTicks > 0 ? 1 : 0])
+        //  ...otherPosInputs,
+        let action = neuralNet.predict([velMagInput, ...inputs, ...powerUpsAsInput, ...agentHasPowers, agent.boosterTicks > 0 ? 1 : 0])
 
         let steeringChange = 0
         let accChange = 0
 
         if (action <= steeringActions.length - 1) {
             steeringChange = steeringActions[action]
-        } else if (action > steeringActions.length - 1 && action < actions.length - 3) {
+        } else if (action > steeringActions.length - 1 && action < actions.length - 2) {
             accChange = accActions[action - steeringActions.length]
         } else if (action == actions.length - 1) {
-            agent.activateBooster()
+            const boosted = agent.activateBooster()
+            if (boosted) {
+                agent.score += 50
+            }
         } else if (action == actions.length - 2) {
             // todo rocket
         }
@@ -163,12 +169,13 @@ class Race {
         agent.update(steeringChange, accChange)
 
         // things that let the agent lose and stop the current round
-        const startPos = this.environment.checkpoints[this.environment.startCheckpoint]
-        const didNotMove = agent.pos.dist(startPos) < 50 && agent.score < 5 && this.step > 100
-        const collectedWrongCP = checkpoints.slice(1, checkpoints.length - 1).some(c => agent.pos.dist(c) < 40)
-        const leftCourse = this.environment.hasAgentLeftCourse(agent)
+        // const startPos = this.environment.checkpoints[this.environment.startCheckpoint]
+        //const didNotMove = agent.pos.dist(startPos) < 50 && agent.score < 5 && this.step > 100
+        //const collectedWrongCP = checkpoints.slice(1, checkpoints.length - 1).some(c => agent.pos.dist(c) < 40)
+        //const leftCourse = this.environment.hasAgentLeftCourse(agent)
 
-        if (didNotMove || collectedWrongCP || leftCourse) {
+        //if (didNotMove || collectedWrongCP || leftCourse) {
+        if (agent.ticksSinceLastCheckpoint > 25) {
             agent.alive = false
         }
 
@@ -176,6 +183,7 @@ class Race {
         const reachedCheckpoint = agent.pos.dist(checkpoints[0]) < 40
 
         if (reachedCheckpoint) {
+            agent.ticksSinceLastCheckpoint = 0
             agent.score++
         }
 
@@ -183,8 +191,8 @@ class Race {
         const validPowerup = this.environment.powerups.filter(p => p.isAvailable()).find(p => p.pos.dist(agent.pos) < 15)
         if (validPowerup) {
             validPowerup.coolDown = 300
+            agent.hasBoosterPowerup = true
             if (validPowerup.pType == PowerupType.Booster) {
-                agent.hasBoosterPowerup = true
             }
             if (validPowerup.pType == PowerupType.Rocket) {
 
@@ -203,8 +211,14 @@ class Race {
             this.updateAgent(agent, neuralNet)
         }
 
+        this.agents.forEach(a => {
+            if (a.maxVelMag > this.maxVelMag) {
+                this.maxVelMag = a.maxVelMag
+            }
+        })
+
         this.environment.updatePowerups()
-        this.handleCollisions()
+        // this.handleCollisions()
 
         this.step++
     }
@@ -265,6 +279,8 @@ export class Gym {
 
     races: Race[] = []
 
+    globalMaxVelMag = 1
+
     constructor() {
         this.bestScore = 0
         this.scoreHistory = []
@@ -322,25 +338,28 @@ export class Gym {
             this.scoreHistory.push(highscore)
 
             // keep best
-            const race = this.races[0]
-            race.reset()
-            race.neuralNets = []
-            race.neuralNets.push(this.bestBrains[0].copy())
-            race.neuralNets.push(this.bestBrains[0].copy())
-            race.neuralNets.push(this.bestBrains[0].copy())
-            race.neuralNets.push(this.bestBrains[0].copy())
 
             const a1 = brainScores[0]
-            const a2 = brainScores[1]
-            for (let i = 1; i < this.races.length; i++) {
+            const mutRate = this.epsilonMutate(epoch)
+            for (let i = 0; i < this.races.length; i++) {
                 const race = this.races[i]
                 race.reset()
                 race.neuralNets = []
-                race.neuralNets.push(a1.nn.copy())
-                race.neuralNets.push(a2.nn.copy())
-                race.neuralNets.push(a1.nn.copy().mutate(this.epsilonMutate(epoch)))
-                race.neuralNets.push(a2.nn.copy().mutate(this.epsilonMutate(epoch)))
+                race.neuralNets.push(a1.nn.copy().mutate(mutRate))
+                race.neuralNets.push(a1.nn.copy().mutate(mutRate))
+                race.neuralNets.push(a1.nn.copy().mutate(mutRate))
+                race.neuralNets.push(a1.nn.copy().mutate(mutRate))
             }
+
+            this.races.forEach(r => {
+                if (r.maxVelMag > this.globalMaxVelMag) {
+                    this.globalMaxVelMag = r.maxVelMag
+                }
+            })
+
+            this.races.forEach(r => {
+                r.maxVelMag = this.globalMaxVelMag
+            })
 
         }
 

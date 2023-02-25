@@ -15,6 +15,7 @@ export class Agent {
     hasBoosterPowerup: boolean
     boosterTicks: number
     hasRocketPowerup: boolean
+    ticksSinceLastCheckpoint = 0
 
 
     constructor(startPos: Vector, startDirection: Vector) {
@@ -34,13 +35,15 @@ export class Agent {
         this.hasRocketPowerup = false
         this.hasBoosterPowerup = false
         this.boosterTicks = 0
+        this.ticksSinceLastCheckpoint = 0
     }
 
     activateBooster() {
-        if (!this.hasBoosterPowerup) return
+        if (!this.hasBoosterPowerup) return false
 
         this.hasBoosterPowerup = false
         this.boosterTicks = 150
+        return true
     }
 
     update(steeringChange: number, accChange: number) {
@@ -48,7 +51,7 @@ export class Agent {
 
         const boostActive = this.boosterTicks > 0
 
-        const newAcc = this.acc + accChange + (boostActive ? 1 : 0)
+        const newAcc = this.acc + accChange + (boostActive ? 0.25 : 0)
         if (newAcc < 1 && newAcc > 0) {
             this.acc = newAcc
         }
@@ -66,5 +69,6 @@ export class Agent {
         }
 
         this.boosterTicks -= 1
+        this.ticksSinceLastCheckpoint += 1
     }
 }

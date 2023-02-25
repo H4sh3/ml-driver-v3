@@ -32,7 +32,7 @@ export class Powerup {
 export class Environment {
     numCheckpoints: number
     checkpoints: Vector[]
-    maxDist = 75
+    maxDist = 150
     center = new Vector(0, 0)
     startCheckpoint: number
     startRandom: boolean
