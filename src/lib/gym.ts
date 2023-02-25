@@ -144,26 +144,28 @@ class Race {
         const others = this.agents.filter(a => a != agent)
         const otherPosInputs = otherAgentsToInput(agent, others)
         const powerUpsAsInput = powerupsToInput(agent, this.environment.powerups)
-        const agentHasPowers = [agent.hasBoosterPowerup ? 1 : 0]//, agent.hasRocketPowerup ? 1 : 0]
+        const agentHasPowers = [agent.hasBoosterPowerup ? 1 : 0, agent.hasRocketPowerup ? 1 : 0]
         const velMagInput = mapValue(agent.vel.mag(), 0, this.maxVelMag, 0, 1)
 
         //  ...otherPosInputs,
-        let action = neuralNet.predict([velMagInput, ...inputs, ...powerUpsAsInput, ...agentHasPowers, agent.boosterTicks > 0 ? 1 : 0])
+        let action = neuralNet.predict([velMagInput, ...inputs, ...otherPosInputs, ...powerUpsAsInput, ...agentHasPowers, agent.boosterTicks > 0 ? 1 : 0])
 
         let steeringChange = 0
         let accChange = 0
 
         if (action <= steeringActions.length - 1) {
             steeringChange = steeringActions[action]
-        } else if (action > steeringActions.length - 1 && action < actions.length - 2) {
+        } else if (action > steeringActions.length - 1 && action < actions.length - 3) {
             accChange = accActions[action - steeringActions.length]
-        } else if (action == actions.length - 1) {
+        } else if (action == actions.length - 2) {
             const boosted = agent.activateBooster()
             if (boosted) {
                 agent.score += 50
             }
-        } else if (action == actions.length - 2) {
-            // todo rocket
+        } else if (action == actions.length - 1) {
+            if (agent.hasRocketPowerup) {
+
+            }
         }
 
         agent.update(steeringChange, accChange)
