@@ -42,13 +42,14 @@ export const sketch = (p: p5) => {
 
         if (state.gym.races[0].finished()) state.gym.races[0].reset()
 
-        state.gym.races[0].run()
+        const rotated = state.gym.races[0].run()
+        state.renderer.renderRotated(rotated)
         state.renderer.renderEnvironment(state.gym.races[0].environment)
 
         state.gym.races[0].agents.forEach((agent, i) => {
           state.renderer.renderAgent(agent, i)
         })
-        // state.renderer.renderGym(state.gym)
+        state.renderer.renderRockets(state.gym.races[0].rockets)
       } else {
         p.background(255)
         state.renderer.renderEnvironment(state.gym.environment)

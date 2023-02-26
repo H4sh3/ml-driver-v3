@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@types/jest": "^29.2.4",
+    "dannjs": "^2.4.1-e",
     "jest": "29.0.3",
     "p5": "^1.5.0",
     "ts-jest": "29.0.3",

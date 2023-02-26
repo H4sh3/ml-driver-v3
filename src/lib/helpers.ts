@@ -7,10 +7,6 @@ export const getMaxDist = (vectors: Vector[], position: Vector) => {
     }, 0)
 }
 
-export const scale = (vectors: Vector[]) => {
-    const maxDist = getMaxDist(vectors, new Vector(0, 0))
-    return vectors.map(c => c.copy()).map(c => c.div(maxDist))
-}
 
 export const flatten = (vectors: Vector[]): number[] => {
     return vectors.reduce((acc: number[], v: Vector) => {
@@ -25,11 +21,16 @@ export const mapValue = (value: number, startMin: number, startMax: number, targ
 }
 
 export const translate = (vectors: Vector[], center: Vector) => {
-    return vectors.map(c => c.copy()).map(c => c.sub(center))
+    return vectors.map(c => c.sub(center))
 }
 
 export const rotate = (vectors: Vector[], angle: number) => {
     return vectors.map(c => c.rotate(angle))
+}
+
+export const scale = (vectors: Vector[]) => {
+    const maxDist = getMaxDist(vectors, new Vector(0, 0))
+    return vectors.map(c => c.div(maxDist))
 }
 
 export const randomArray = (n: number) => {

@@ -15,17 +15,19 @@ export enum PowerupType {
 
 export class Powerup {
     pos: Vector
-    pType: PowerupType
     coolDown: number
 
-    constructor(pos: Vector, pType: PowerupType) {
+    constructor(pos: Vector) {
         this.pos = pos
-        this.pType = pType
         this.coolDown = 0
     }
 
     isAvailable() {
         return this.coolDown <= 0
+    }
+
+    getType() {
+        return getRandomInt(0, 100) > 50 ? PowerupType.Booster : PowerupType.Rocket
     }
 }
 
@@ -78,14 +80,14 @@ export class Environment {
 
     initBPark() {
         // left
-        const h = 600
-        const w = 200
-        const numCornerCP = 16
+        const h = 500
+        const w = 300
+        const numCornerCP = 18
         const numCornerCPHalf = numCornerCP / 2
 
         const numCP = 20
 
-        for (let y = numCP / 2; y >= -numCP / 2; y--) {
+        for (let y = (numCP / 2); y >= (-numCP / 2); y--) {
             this.checkpoints.push(new Vector(0, y * (h / numCP)))
         }
 
@@ -105,24 +107,26 @@ export class Environment {
 
         // bottom cuve
         for (let i = -numCornerCPHalf; i <= numCornerCPHalf; i++) {
-            const cp = center.copy().rotate(mapValue(i, -numCornerCPHalf, numCornerCPHalf, 0, 180))
+            const rotation = mapValue(i, -numCornerCPHalf, numCornerCPHalf, 0, 180)
+            const cp = center.copy().rotate(rotation)
             cp.y += (h / 2) + 20
             cp.x += w / 2
             this.checkpoints.push(cp)
         }
+
         this.numCheckpoints = this.checkpoints.length
 
         // add powerups 
         const yPos = (h / 2) - 30
         const dist = 30
         this.powerups = []
-        this.powerups.push(new Powerup(new Vector(-dist, -yPos), PowerupType.Booster))
-        this.powerups.push(new Powerup(new Vector(0, -yPos), PowerupType.Booster))
-        this.powerups.push(new Powerup(new Vector(dist, -yPos), PowerupType.Booster))
+        this.powerups.push(new Powerup(new Vector(-dist, -yPos)))
+        this.powerups.push(new Powerup(new Vector(0, -yPos)))
+        this.powerups.push(new Powerup(new Vector(dist, -yPos)))
 
-        this.powerups.push(new Powerup(new Vector(-dist + w, yPos), PowerupType.Booster))
-        this.powerups.push(new Powerup(new Vector(0 + w, yPos), PowerupType.Booster))
-        this.powerups.push(new Powerup(new Vector(dist + w, yPos), PowerupType.Booster))
+        this.powerups.push(new Powerup(new Vector(-dist + w, yPos)))
+        this.powerups.push(new Powerup(new Vector(0 + w, yPos)))
+        this.powerups.push(new Powerup(new Vector(dist + w, yPos)))
     }
 
     getStartSettings() {
@@ -148,17 +152,17 @@ export class Environment {
     }
 
     // agents input based on passed score
-    getCheckpoints(n: number, score: number) {
+    getCheckpoints(n: number, reachedCheckpoints: number) {
         const checkpoints = []
         for (let i = 0; i < n; i++) {
-            const index = (this.startCheckpoint + score + i) % this.numCheckpoints
+            const index = (this.startCheckpoint + reachedCheckpoints + i) % this.numCheckpoints
             checkpoints.push(this.checkpoints[index])
         }
         return checkpoints
     }
 
     getNextCheckpoint(agent: Agent) {
-        return this.checkpoints[(this.startCheckpoint + agent.score) % this.numCheckpoints]
+        return this.checkpoints[(this.startCheckpoint + agent.reachedCheckpoints) % this.numCheckpoints]
     }
 
     hasAgentLeftCourse(agent: Agent) {
