@@ -6,6 +6,7 @@ import { Renderer } from './lib/render'
  * @param {p5} p
  */
 
+// main state
 interface State {
   gym: Gym | undefined
   renderer: Renderer | undefined
