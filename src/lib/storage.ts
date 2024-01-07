@@ -5,8 +5,6 @@ export class LocalStorageManager {
     static saveObject(key: string, object: NeuralNetwork): void {
         try {
             const serializedObject = object.serialize()
-            console.log("serializedObject")
-            console.log(serializedObject)
             localStorage.setItem(key, serializedObject);
         } catch (error) {
             console.error('Error saving object to local storage', error);

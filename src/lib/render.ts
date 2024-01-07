@@ -50,17 +50,16 @@ export class Renderer {
         for (let i = 0; i < env.checkpoints.length; i++) {
             const cp = env.checkpoints[i]
             this.p5.ellipse(cp.x, cp.y, 5, 5)
-
         }
         
-        this.p5.noFill()
         this.p5.stroke(0)
         this.p5.strokeWeight(1)
-        this.p5.textSize(15)
-        for (let i = 0; i < env.checkpoints.length; i++) {
-            const cp = env.checkpoints[i]
-            // this.p5.text(i, cp.x+15, cp.y)
+        this.p5.fill(0,255,0)
+        for (let i = 0; i < env.powerups.length; i++) {
+            const cp = env.powerups[i].pos
+            this.p5.rect(cp.x, cp.y, 10, 10)
         }
+
         this.p5.pop()
     }
 

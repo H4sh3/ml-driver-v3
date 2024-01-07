@@ -24,7 +24,6 @@ let tanh = new ActivationFunction(
   y => 1 - (y * y)
 );
 
-
 class NeuralNetwork {
   input_nodes: number
   hidden_nodes: number
@@ -137,10 +136,6 @@ class NeuralNetwork {
     this.weights_ih.add(weight_ih_deltas);
     // Adjust the bias by its deltas (which is just the gradients)
     this.bias_h.add(hidden_gradient);
-
-    // outputs.print();
-    // targets.print();
-    // error.print();
   }
 
   serialize() {

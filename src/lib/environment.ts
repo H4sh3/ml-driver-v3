@@ -9,7 +9,6 @@ function getRandomInt(min: number, max: number): number {
 }
 
 export enum PowerupType {
-    Rocket,
     Booster
 }
 
@@ -19,15 +18,10 @@ export class Powerup {
 
     constructor(pos: Vector) {
         this.pos = pos
-        this.coolDown = 0
-    }
-
-    isAvailable() {
-        return this.coolDown <= 0
     }
 
     getType() {
-        return getRandomInt(0, 100) > 50 ? PowerupType.Booster : PowerupType.Rocket
+        return PowerupType.Booster
     }
 }
 
@@ -214,16 +208,10 @@ export class Environment {
 
         const difference = c1.copy().sub(c2)
 
-        const startPositions = []
-        const startPos = c1.copy().add(difference.mult(0.5))
+        const startPosition = c1.copy().add(difference.mult(0.5))
+        const startDir = c1.copy().sub(startPosition).normalize()
 
-        startPositions.push(startPos.copy())//.add(new Vector(10, 40)))
-        startPositions.push(startPos.copy())//.add(new Vector(-10, 20)))
-        startPositions.push(startPos.copy())//.add(new Vector(10, 0)))
-        startPositions.push(startPos.copy())//.add(new Vector(-10, -20)))
-
-        const startDir = c1.copy().sub(startPos).normalize()
-        return { startPositions, startDir }
+        return { startPosition, startDir }
     }
 
     // agents input based on passed score

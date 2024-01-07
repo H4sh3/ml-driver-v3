@@ -1,3 +1,4 @@
+import { accActions, actions, steeringActions } from "./config";
 import Vector from "./vector";
 
 export class Agent {
@@ -54,7 +55,23 @@ export class Agent {
         return true
     }
 
-    update(steeringChange: number, accChange: number, boosting: boolean) {
+    update(action: number) {
+
+        let steeringChange = 0
+        let accChange = 0
+        let boosting = false
+
+        if (action <= steeringActions.length - 1) {
+            steeringChange = steeringActions[action]
+        } else if (action > steeringActions.length - 1 && action < actions.length - 3) {
+            accChange = accActions[action - steeringActions.length]
+        } else if (action == actions.length - 2) {
+            if (this.activateBooster()) {
+                this.score += 5
+                boosting = true
+            }
+        }
+
 
         if(!this.alive) return
 
