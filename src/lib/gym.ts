@@ -8,10 +8,8 @@ import { LocalStorageManager } from "./storage";
 import { actions, numAgents } from "./config";
 import { Race } from "./race";
 
-const exploreEpoch = 2500
 const numRaces = 20
 
-const agentDetectRange = 150
 const inputCheckpoints = 10
 const velocityInput = 1
 const hasPowerupInputs = 2
@@ -61,8 +59,9 @@ export class Gym {
     environment: Environment
     storage:LocalStorageManager
 
-    epoch: number
-    exploreEpoch: number
+    epoch: number = 0
+    exploreEpoch: number = 500
+    exploring: boolean = true
 
     step: number
     maxSteps: number
@@ -80,6 +79,7 @@ export class Gym {
     globalMaxVelMag:number = 1
 
     races: Race[] = []
+
 
     constructor() {
         this.bestScore = 0
@@ -114,14 +114,13 @@ export class Gym {
     }
 
     epsilonMutate(epoch: number) {
-        return this.epsilonMax - ((this.epsilonMax - this.epsilonMin) * (epoch / exploreEpoch));
+        return this.epsilonMax - ((this.epsilonMax - this.epsilonMin) * (epoch / this.exploreEpoch));
     }
 
     exploration(renderer: Renderer) {
         // lets the agent explore the environment by somethimes picking random actions
 
-        for (let epoch = 0; epoch < exploreEpoch; epoch++) {
-
+        while (this.epoch < this.exploreEpoch) {
             // run all races
             this.races.forEach(race => {
                 while (!race.finished() && !race.stopped) {
@@ -151,14 +150,18 @@ export class Gym {
             if (highscore > this.bestScore) {
                 this.bestScore = highscore
                 this.bestBrains = [brainScores[0].nn, ...this.bestBrains]
-                console.log(`Exploration score: ${highscore} in ${epoch}/${exploreEpoch}`)
+                console.log(`Exploration score: ${highscore} in ${this.epoch}/${this.exploreEpoch}`)
             }
-            this.scoreHistory.push(highscore)
+
+            const bestScore = Math.max(...this.scoreHistory)
+            if(highscore > bestScore){
+                this.scoreHistory.push(highscore)
+            }
 
             // keep best
             const a1 = brainScores[0]
             const a2 = brainScores[1]
-            const mutRate = this.epsilonMutate(epoch)
+            const mutRate = this.epsilonMutate(this.epoch)
             for (let i = 0; i < this.races.length / 2; i++) {
                 const race = this.races[i]
                 race.reset()
@@ -189,10 +192,13 @@ export class Gym {
                 r.maxVelMag = this.globalMaxVelMag
             })
 
-            if (epoch % 50 == 0) {
-                console.log(`${epoch} / ${exploreEpoch}: ${this.bestScore}`)
-            }
+            this.epoch++
 
+            // return every few epochs to render progress
+            if (this.epoch % 5 == 0) {
+                console.log(`${this.epoch} / ${this.exploreEpoch}: ${this.bestScore}`)
+                return
+            }
         }
 
         LocalStorageManager.saveObject('bestBrain', this.bestBrains[0])
@@ -204,6 +210,8 @@ export class Gym {
         }
 
         renderer.renderScoreHistory(this.scoreHistory)
+
+        this.exploring = false
         console.log("exploration finished!")
     }
 }

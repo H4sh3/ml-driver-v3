@@ -21,19 +21,19 @@ export class Renderer {
     render(gym: Gym, rotated: Vector[]) {
         this.renderScoreHistory(gym.scoreHistory)
         this.renderEnvironment(gym.races[0].environment)
-        
+
         this.renderRotated(rotated)
-        
+
         gym.races[0].agents.forEach((agent, i) => {
-          this.renderAgent(agent, i)
+            this.renderAgent(agent, i)
         })
-        
+
         this.renderScore(gym.races[0].agents)
         this.renderGym(gym)
     }
 
     renderEnvironment = (env: Environment) => {
-        this.p5.background(255,255,255)
+        this.p5.background(255, 255, 255)
         this.p5.push()
         this.translate()
         this.p5.strokeWeight(80)
@@ -45,16 +45,16 @@ export class Renderer {
         }
 
         this.p5.strokeWeight(1)
-        this.p5.fill(0,0,255)
+        this.p5.fill(0, 0, 255)
         this.p5.stroke(0)
         for (let i = 0; i < env.checkpoints.length; i++) {
             const cp = env.checkpoints[i]
             this.p5.ellipse(cp.x, cp.y, 5, 5)
         }
-        
+
         this.p5.stroke(0)
         this.p5.strokeWeight(1)
-        this.p5.fill(0,255,0)
+        this.p5.fill(0, 255, 0)
         for (let i = 0; i < env.powerups.length; i++) {
             const cp = env.powerups[i].pos
             this.p5.rect(cp.x, cp.y, 10, 10)
@@ -65,15 +65,15 @@ export class Renderer {
 
     renderRotated(rotated: Vector[]) {
         this.p5.push()
-        this.translate(-200,-200)
-        this.p5.text("Agent-1 inputs",-100,25)
+        this.translate(-200, -200)
+        this.p5.text("Agent-1 inputs", -100, 25)
 
         this.p5.strokeWeight(2)
         this.p5.line(-50, 0, 50, 0)
         this.p5.line(0, -50, 0, 50)
         this.p5.line(0, -50, -10, -40)
         this.p5.line(0, -50, 10, -40)
-        
+
         this.p5.rotate(-90)
 
         rotated.forEach(r => this.p5.ellipse(r.x, r.y, 5, 5))
@@ -81,7 +81,7 @@ export class Renderer {
         this.p5.pop()
     }
 
-    renderScore(agents:Agent[]) {
+    renderScore(agents: Agent[]) {
         this.p5.push()
         this.translate(-300)
         const size = 20
@@ -95,15 +95,15 @@ export class Renderer {
 
     renderAgent = (agent: Agent, i: number) => {
         this.p5.push()
-        
-        this.translate(agent.pos.x,agent.pos.y)
-        
+
+        this.translate(agent.pos.x, agent.pos.y)
+
         const agentSize = 30
         this.p5.fill(250, 90, 90)
 
         this.p5.push()
         this.p5.rotate(agent.direction.heading())
-        this.p5.rect(0, 0, agentSize,agentSize/2)
+        this.p5.rect(0, 0, agentSize, agentSize / 2)
         this.p5.pop()
 
         this.p5.pop()
@@ -136,7 +136,7 @@ export class Renderer {
     }
 
     renderScoreHistory(scoreHistory: number[]) {
-        this.p5.background(255,255,255,10)
+        this.p5.background(255, 255, 255, 10)
         const smoothed = smoothArray(scoreHistory, 100)
         const maxScore = Math.max(...smoothed)
 
@@ -154,18 +154,63 @@ export class Renderer {
             this.p5.line(p1.x, p1.y, p2.x, p2.y)
         }
     }
+
+    renderLogs(gym:Gym) {
+
+        const data = gym.scoreHistory
+
+        const epoch = gym.epoch
+        const epochMax = gym.exploreEpoch
+
+        if (data.length >= 2) {
+
+            const max = data.reduce(function (a, b) {
+                return Math.max(a, b);
+            });
+            const logWindowHeight = 150;
+            const logWindowWidth = 225;
+            this.p5.fill(255)
+            this.p5.rect(0, 0, logWindowWidth*2, logWindowHeight*2)
+            this.p5.stroke(0,255,0)
+            this.p5.fill(0)
+            for (let i = 0; i < data.length - 1; i++) {
+                const p1 = data[i]
+                const p2 = data[i + 1]
+                if (p1 && p2) {
+                    const x1 = mapValue(i, 0, data.length, 0, logWindowWidth)
+                    const y1 = mapValue(p1, 0, max, 0, logWindowHeight - 40)
+                    const x2 = mapValue(i + 1, 0, data.length, 0, logWindowWidth)
+                    const y2 = mapValue(p2, 0, max, 0, logWindowHeight - 40)
+                    this.p5.stroke(0)
+                    this.p5.strokeWeight(2)
+                    this.p5.line(x1, logWindowHeight - y1, x2, logWindowHeight - y2)
+                }
+            }
+            
+            const hs = data[data.length-1]
+
+            this.p5.strokeWeight(0.5)
+            this.p5.stroke(255,0,0)
+            this.p5.fill(255,0,0)
+            this.p5.text("Exploring...", 4, 10)
+            this.p5.fill(0)
+            this.p5.stroke(0)
+            this.p5.text(`Epoch: ${epoch} / ${epochMax}`, 4, 25)
+            this.p5.text(`Score: ${hs}`,4,40)
+
+            if (data.length > logWindowWidth) {
+                data.shift()
+            }
+        }
+    }
 }
 
 function smoothArray(arr: number[], n: number) {
-    // Check if the input array is empty
     if (arr.length === 0) {
         return [];
     }
 
-    // Initialize the smoothed array with the same length as the input array
     const smoothed = [];
-
-    // Calculate the moving average for each element of the input array
 
     const windowSize = Math.floor(arr.length / n)
 
@@ -179,4 +224,5 @@ function smoothArray(arr: number[], n: number) {
 
     return smoothed;
 }
+
 

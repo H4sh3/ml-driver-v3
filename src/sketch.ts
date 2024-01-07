@@ -23,23 +23,29 @@ export const sketch = (p: p5) => {
     p.createCanvas(1000, 1000)
     state.gym = new Gym()
     state.renderer = new Renderer(p)
-    state.gym.exploration(state.renderer)
   }
-
+  
   p.draw = () => {
-      if (state.renderer instanceof Renderer && state.gym instanceof Gym) {
 
+    if(state.gym.exploring){
+      state.gym.exploration(state.renderer)
+      state.renderer.renderLogs(state.gym)
+    }else{
+   
+      if (state.renderer instanceof Renderer && state.gym instanceof Gym) {
+        
         // do one simulation step
         const rotated = state.gym.races[0].run()
         
         // render environment, agent, etc.
         state.renderer.render(state.gym, rotated)
-
+        
         // if done -> reset
         if (state.gym.races[0].finished()) state.gym.races[0].reset()
-
+        
       } else {
         state.renderer.renderEnvironment(state.gym.environment)
       }
+    }
   }
 }
