@@ -37,11 +37,9 @@ export class Environment {
     maxDist = 150
     center = new Vector(0, 0)
     startCheckpoint: number
-    startRandom: boolean
     powerups: Powerup[]
 
-    constructor(startRandom: boolean = false) {
-        this.startRandom = startRandom
+    constructor() {
         this.checkpoints = []
     }
 
@@ -129,11 +127,88 @@ export class Environment {
         this.powerups.push(new Powerup(new Vector(dist + w, yPos)))
     }
 
+
+    generateCurve(w:number, h:number){
+        const checkpoints = []
+       
+        let numCornerCP = 12
+        let numCornerCPHalf = numCornerCP / 2
+
+        const center = new Vector(h,0)
+        
+        for (let i = -numCornerCPHalf; i <= numCornerCPHalf; i++) {
+            const cp = center.copy().rotate(mapValue(i, -numCornerCPHalf, numCornerCPHalf, -180, 180))
+            cp.y += (-h / 2) - 20
+            cp.x += w / 2
+            checkpoints.push(cp)
+        }
+
+        return checkpoints
+    }
+
+    rotateCps(checkpoints: Vector[], angle: number){
+        checkpoints.forEach(element => {
+            element.rotate(angle)
+        });
+    }
+
+    initNewTrack() {
+        // left
+        const h = 250
+        const w = 250
+
+        const cps = this.generateCurve(w,h)
+        //this.rotateCps(cps, 90)
+        this.checkpoints = cps
+
+        /*
+        // left
+        for (let y = (numCP / 2); y >= (-numCP / 2); y--) {
+            this.checkpoints.push(new Vector(0, y * (h / numCP)))
+        }
+
+        // top curve
+        const center = new Vector(w / 2, 0)
+        for (let i = -numCornerCPHalf; i <= numCornerCPHalf; i++) {
+            const cp = center.copy().rotate(mapValue(i, -numCornerCPHalf, numCornerCPHalf, -180, 0))
+            cp.y += (-h / 2) - 20
+            cp.x += w / 2
+            this.checkpoints.push(cp)
+        }
+
+        // right
+        for (let y = -numCP / 2; y <= numCP / 2; y++) {
+            this.checkpoints.push(new Vector(w, y * (h / numCP)))
+        }
+
+        // bottom cuve
+        for (let i = -numCornerCPHalf; i <= numCornerCPHalf; i++) {
+            const rotation = mapValue(i, -numCornerCPHalf, numCornerCPHalf, 0, 180)
+            const cp = center.copy().rotate(rotation)
+            cp.y += (h / 2) + 20
+            cp.x += w / 2
+            this.checkpoints.push(cp)
+        }
+        */
+
+        this.numCheckpoints = this.checkpoints.length
+
+        // add powerups 
+        const yPos = (h / 2) - 30
+        const dist = 30
+        this.powerups = []
+        this.powerups.push(new Powerup(new Vector(-dist, -yPos)))
+        this.powerups.push(new Powerup(new Vector(0, -yPos)))
+        this.powerups.push(new Powerup(new Vector(dist, -yPos)))
+
+        this.powerups.push(new Powerup(new Vector(-dist + w, yPos)))
+        this.powerups.push(new Powerup(new Vector(0 + w, yPos)))
+        this.powerups.push(new Powerup(new Vector(dist + w, yPos)))
+    }
+
     getStartSettings() {
         this.startCheckpoint = 10
-        if (this.startRandom) {
-            this.startCheckpoint = getRandomInt(0, this.numCheckpoints - 2)
-        }
+        
         const c1 = this.checkpoints[this.startCheckpoint]
         const c2 = this.checkpoints[this.startCheckpoint + 1]
 
@@ -142,10 +217,10 @@ export class Environment {
         const startPositions = []
         const startPos = c1.copy().add(difference.mult(0.5))
 
-        startPositions.push(startPos.copy().add(new Vector(10, 40)))
-        startPositions.push(startPos.copy().add(new Vector(-10, 20)))
-        startPositions.push(startPos.copy().add(new Vector(10, 0)))
-        startPositions.push(startPos.copy().add(new Vector(-10, -20)))
+        startPositions.push(startPos.copy())//.add(new Vector(10, 40)))
+        startPositions.push(startPos.copy())//.add(new Vector(-10, 20)))
+        startPositions.push(startPos.copy())//.add(new Vector(10, 0)))
+        startPositions.push(startPos.copy())//.add(new Vector(-10, -20)))
 
         const startDir = c1.copy().sub(startPos).normalize()
         return { startPositions, startDir }

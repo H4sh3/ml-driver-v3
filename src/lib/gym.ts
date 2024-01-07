@@ -4,22 +4,20 @@ import { Environment, Powerup, PowerupType } from "./environment";
 import { Renderer } from "./render";
 import { flatten, mapValue, scale, rotate, translate, otherAgentAsInput as posRelativeToAgent } from "./helpers";
 import NeuralNetwork from "./nn";
+import { LocalStorageManager } from "./storage";
 
 // const dannjs = require('dannjs');
 
 const exploreEpoch = 2500
-
 const numRaces = 20
 const numAgents = 4
 
 const agentDetectRange = 150
 const inputCheckpoints = 10
-const otherAgentPositions = 2 * (numAgents - 1)
 const velocityInput = 1
-const powerupPositionInputs = 2 * 6
 const hasPowerupInputs = 2
 const boostActive = 1
-const inputNodes = (inputCheckpoints * 2) + velocityInput + 0 + 0 + hasPowerupInputs + boostActive
+const inputNodes = (inputCheckpoints * 2) + velocityInput + hasPowerupInputs + boostActive
 
 export const steeringActions = [-8, -5, -3, 0, 3, 5, 8]
 export const accActions = [0, 0.1, .25, 0.5, 1]
@@ -27,8 +25,6 @@ export const accActions = [0, 0.1, .25, 0.5, 1]
 const actions = [...steeringActions, ...accActions, 0] // two more for use of powerups
 const outputNodes = actions.length + 1 // last action is do nothing
 const hiddenNodes = Math.floor((inputNodes + outputNodes) / 2)
-
-
 
 export const getInputs = (environment: Environment, agent: Agent) => {
     const checkpoints = environment.getCheckpoints(inputCheckpoints, agent.reachedCheckpoints)
@@ -39,27 +35,8 @@ export const getInputs = (environment: Environment, agent: Agent) => {
     return { inputs, checkpoints, rotated, translated }
 }
 
-/* interface NeuralNetwork {
-    feedForward: (inputs: number[]) => number[]
-    addHiddenLayer: (hiddenN: number, activationfunc: string) => any
-    outputActivation: (activationfunc: string) => any
-    makeWeights: () => void
-    lr: number
-    copy: () => NeuralNetwork
-    mutateRandom: (a: number, b: number) => void
-    toJSON: () => string
-}
- */
 export const getNN = () => {
     return new NeuralNetwork(inputNodes, hiddenNodes, outputNodes)
-    /*
-    const nn = new dannjs.Dann(inputNodes, outputNodes) as NeuralNetwork;
-    nn.addHiddenLayer(hiddenNodes, 'leakyrelu');
-    nn.addHiddenLayer(hiddenNodes, 'leakyrelu');
-    nn.outputActivation('sigmoid');
-    nn.makeWeights();
-    return nn
-    */
 }
 
 const cloneNN = (nn: NeuralNetwork) => nn.copy() //dannjs.Dann.createFromJSON(nn.toJSON()) 
@@ -110,22 +87,8 @@ const powerupsToInput = (agent: Agent, powerups: Powerup[]): number[] => {
     return othersPosInputs
 }
 
-export class Rocket {
-    pos: Vector
-    vel: Vector
-    age: number = 0
-    agent: Agent // agent that shot this rocket
-
-    constructor(pos: Vector, vel: Vector, agent: Agent) {
-        this.pos = pos
-        this.vel = vel
-        this.agent = agent
-    }
-}
-
 class Race {
     agents: Agent[]
-    rockets: Rocket[]
     neuralNets: NeuralNetwork[]
     environment: Environment
     step: number
@@ -137,7 +100,6 @@ class Race {
 
     constructor(agents: Agent[], environment: Environment, neuralNets: NeuralNetwork[]) {
         this.agents = agents
-        this.rockets = []
         this.environment = environment
         this.neuralNets = neuralNets
         this.step = 0
@@ -186,21 +148,11 @@ class Race {
     }
 
     updateAgent(agent: Agent, neuralNet: NeuralNetwork) {
-
         const { inputs, checkpoints, rotated } = getInputs(this.environment, agent)
-        const others = this.agents.filter(a => a != agent)
-        const otherPosInputs = otherAgentsToInput(agent, others)
-        const powerUpsAsInput = powerupsToInput(agent, this.environment.powerups)
         const agentHasPowers = [agent.hasBoosterPowerup ? 1 : 0, agent.hasRocketPowerup ? 1 : 0]
         const velMagInput = mapValue(agent.vel.mag(), 0, this.maxVelMag, 0, 1)
 
-        //  ...otherPosInputs, // , ...powerUpsAsInput
         let action = neuralNet.predict([velMagInput, ...inputs, ...agentHasPowers, agent.boosterTicks > 0 ? 1 : 0])
-        /*
-        const combinedInputs = [velMagInput, ...inputs, ...powerUpsAsInput, ...agentHasPowers, agent.boosterTicks > 0 ? 1 : 0]
-        let actions = neuralNet.feedForward(combinedInputs)
-        const action = actions.indexOf(Math.max(...actions))
-        */
 
         let steeringChange = 0
         let accChange = 0
@@ -215,24 +167,9 @@ class Race {
                 agent.score += 5
                 boosting = true
             }
-        } else if (action == actions.length - 1) {
-            if (agent.hasRocketPowerup) {
-                agent.hasRocketPowerup = false
-                const agentHeading = agent.direction.heading()
-                const rocketPos = agent.pos.copy().add(new Vector(20, 0).rotate(agentHeading))
-                const rocketVel = new Vector(30, 0).rotate(agentHeading)
-                this.rockets.push(new Rocket(rocketPos, rocketVel, agent))
-                agent.score += 100
-            }
         }
 
         agent.update(steeringChange, accChange, boosting)
-
-        if (agent.ticksSinceLastCheckpoint > 25) {
-            // agent.reachedCheckpoints = 0
-            agent.score = 0
-            agent.alive = false
-        }
 
         // update score if agent is close to target
         const dist = agent.pos.dist(checkpoints[0])
@@ -248,16 +185,7 @@ class Race {
 
                 const rankedAgents = [...this.agents].sort((a, b) => a.reachedCheckpoints > b.reachedCheckpoints ? -1 : 1)
 
-                if (agent == rankedAgents[0]) {
-                    agent.score += 100
-                } else if (agent == rankedAgents[1]) {
-                    agent.score += 50
-                } else if (agent == rankedAgents[2]) {
-                    agent.score += 25
-                } else if (agent == rankedAgents[3]) {
-                    agent.score += 5
-                }
-
+                agent.score += 100
             }
         }
 
@@ -277,20 +205,6 @@ class Race {
         }
 
         return rotated
-    }
-
-    handleRockets() {
-        this.rockets.forEach(r => {
-            r.pos.add(r.vel)
-            const hitAgent = this.agents.find(a => a !== r.agent && a.pos.dist(r.pos) < 10)
-            if (hitAgent) {
-                hitAgent.vel.mult(0.01)
-                r.age = 2000
-                r.agent.score += 100
-            }
-            r.age++
-        })
-        this.rockets = this.rockets.filter(r => r.age < 1000)
     }
 
     run() {
@@ -314,8 +228,6 @@ class Race {
         })
 
         this.environment.updatePowerups()
-        // this.handleCollisions()
-        this.handleRockets()
 
         this.step++
 
@@ -326,11 +238,12 @@ class Race {
         this.booscount = 0
         this.step = 0
         const { startPositions } = this.environment.getStartSettings()
-        startPositions.sort((a, b) => 0.5 - Math.random());
+
         this.agents.forEach((a, i) => {
             a.startPos = startPositions[i]
             a.reset()
         })
+
         this.environment.powerups.forEach(p => p.coolDown = 0)
     }
 
@@ -342,6 +255,7 @@ const getNewRace = () => {
 
     const env = new Environment(false)
     env.initBPark()
+    // env.initNewTrack()
 
     const { startPositions, startDir } = env.getStartSettings()
 
@@ -381,17 +295,41 @@ export class Gym {
 
     globalMaxVelMag = 1
 
+    storage:LocalStorageManager
+
     constructor() {
         this.bestScore = 0
         this.scoreHistory = []
         this.epsilonMax = 0.5
         this.epsilonMin = 0.01
-        this.bestBrains = [getNN()]
+
+
+        const stored = LocalStorageManager.getObject('bestBrain')
+
+        this.bestBrains = []
+
+        if(stored != undefined){
+            console.log("using stored brain")
+            this.bestBrains.push(stored)
+            this.bestBrains.push(stored)
+            this.bestBrains.push(stored)
+            this.bestBrains.push(stored)
+        }else{
+            this.bestBrains.push(getNN())
+        }
+
         this.trainingPhase = 0
 
         while (this.races.length < numRaces) {
             this.races.push(getNewRace())
         }
+
+        this.races[0].neuralNets = [
+            stored,
+            stored.copy(),
+            stored.copy(),
+            stored.copy(),
+        ]
     }
 
     epsilonMutate(epoch: number) {
@@ -403,8 +341,6 @@ export class Gym {
 
         for (let epoch = 0; epoch < exploreEpoch; epoch++) {
 
-            const mutationChange = 0.01 // mapValue(this.epsilonMutate(epoch), this.epsilonMin, this.epsilonMax, 0.02, 0.005)
-
             // run all races
             this.races.forEach(race => {
                 while (!race.finished() && !race.stopped) {
@@ -412,10 +348,9 @@ export class Gym {
                 }
             })
 
-            // console.log(`boost count ${this.races.reduce((acc, r) => acc + r.booscount, 0)}`)
-
             const brainScores: BrainScore[] = []
 
+            // evaluate scores
             this.races.forEach(race => {
                 const highscore = Math.max(...race.agents.map(a => a.getScore()))
                 const bestIndex = race.agents.map(a => a.getScore()).indexOf(highscore)
@@ -440,7 +375,6 @@ export class Gym {
             this.scoreHistory.push(highscore)
 
             // keep best
-
             const a1 = brainScores[0]
             const a2 = brainScores[1]
             const mutRate = this.epsilonMutate(epoch)
@@ -454,7 +388,7 @@ export class Gym {
                 nn1.mutate(mutRate)
                 race.neuralNets.push(nn1)
 
-                const nn2 = cloneNN(a1.nn)
+                const nn2 = cloneNN(a2.nn)
                 nn2.mutate(mutRate)
                 race.neuralNets.push(nn2)
 
@@ -481,10 +415,12 @@ export class Gym {
 
         }
 
+        LocalStorageManager.saveObject('bestBrain', this.bestBrains[0])
+
         this.races[0].maxSteps = 2000
         this.races[0].neuralNets = []
         for (let i = 0; i < numAgents; i++) {
-            this.races[0].neuralNets.push(cloneNN(this.bestBrains[0]))
+            this.races[0].neuralNets.push(cloneNN(this.bestBrains[i]))
         }
 
         renderer.renderScoreHistory(this.scoreHistory)

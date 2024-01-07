@@ -1,7 +1,13 @@
 // Matrix lib from Daniel Shiffman
 // https://github.com/CodingTrain/Toy-Neural-Network-JS/tree/master/lib
 
-export class Matrix {
+interface IMatrix{
+  rows: number
+  cols: number
+  data: number[][]
+}
+
+export class Matrix implements IMatrix {
   rows: number
   cols: number
   data: number[][]
@@ -20,16 +26,12 @@ export class Matrix {
     }
     return m;
   }
-  /* 
-    static fromArray(arr: number[]) {
-      return new Matrix(arr.length, 1).map((e, i) => arr[i]);
-    } */
-
+  
   static subtract(a: Matrix, b: Matrix) {
-    /*     if (a.rows !== b.rows || a.cols !== b.cols) {
-          console.log('Columns and Rows of A must match Columns and Rows of B.');
-          return a;
-        } */
+    if (a.rows !== b.rows || a.cols !== b.cols) {
+      console.log('Columns and Rows of A must match Columns and Rows of B.');
+      return a;
+    }
 
     // Return a new Matrix a-b
     return new Matrix(a.rows, a.cols)
@@ -56,10 +58,10 @@ export class Matrix {
 
   add(n: Matrix | number) {
     if (n instanceof Matrix) {
-      /*       if (this.rows !== n.rows || this.cols !== n.cols) {
-              console.log('Columns and Rows of A must match Columns and Rows of B.');
-              return;
-            } */
+      if (this.rows !== n.rows || this.cols !== n.cols) {
+        console.log('Columns and Rows of A must match Columns and Rows of B.');
+        return;
+      }
       return this.map((e, i, j) => e + n.data[i][j]);
     } else {
       return this.map(e => e + n);
@@ -73,10 +75,10 @@ export class Matrix {
 
   static multiply(a: Matrix, b: Matrix) {
     // Matrix product
-    /*     if (a.cols !== b.rows) {
-          console.log('Columns of A must match rows of B.');
-          return a;
-        } */
+    if (a.cols !== b.rows) {
+      console.log('Columns of A must match rows of B.');
+      return a;
+    }
 
     return new Matrix(a.rows, b.cols)
       .map((e, i, j) => {
@@ -91,10 +93,10 @@ export class Matrix {
 
   multiply(n: Matrix | number) {
     if (n instanceof Matrix) {
-      /*       if (this.rows !== n.rows || this.cols !== n.cols) {
-              console.log('Columns and Rows of A must match Columns and Rows of B.');
-              return n;
-            } */
+      if (this.rows !== n.rows || this.cols !== n.cols) {
+        console.log('Columns and Rows of A must match Columns and Rows of B.');
+        return n;
+      }
 
       // hadamard product
       return this.map((e, i, j) => e * n.data[i][j]);
@@ -130,8 +132,8 @@ export class Matrix {
     return JSON.stringify(this);
   }
 
-  static deserialize(data: string) {
-    const matrixData = JSON.parse(data);
+  static deserialize(data: IMatrix) {
+    const matrixData = data
     let matrix = new Matrix(matrixData.rows, matrixData.cols);
     matrix.data = matrixData.data;
     return matrix;

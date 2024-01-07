@@ -55,6 +55,9 @@ export class Agent {
     }
 
     update(steeringChange: number, accChange: number, boosting: boolean) {
+
+        if(!this.alive) return
+
         this.isBoosting = boosting
 
         this.direction.rotate(steeringChange)
@@ -67,7 +70,8 @@ export class Agent {
         const tmpAcc = this.direction.copy().mult(this.acc)
 
         this.vel.add(tmpAcc)
-        this.vel.div(boosting ? 1.10 : 1.15)
+        // this.vel.div(boosting ? 1.10 : 1.15)
+        this.vel.mult(0.92)
 
         this.pos.add(this.vel)
 
@@ -77,5 +81,11 @@ export class Agent {
         }
 
         this.ticksSinceLastCheckpoint += 1
+
+
+        if (this.ticksSinceLastCheckpoint > 25) {
+            this.score = 0
+            this.alive = false
+        }
     }
 }
