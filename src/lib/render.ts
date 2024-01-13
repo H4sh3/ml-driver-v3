@@ -1,6 +1,6 @@
 import p5 from "p5";
 import { Agent } from "./agent";
-import { Environment } from "./environment";
+import { Environment, tileSize } from "./environment";
 import { Gym } from "./gym";
 import { mapValue } from "./helpers";
 import Vector from "./vector";
@@ -15,27 +15,26 @@ export class Renderer {
     }
 
     private translate(offsetX = 0, offsetY = 0) {
-        this.p5.translate((this.p5.width / 2) + offsetX, (this.p5.height / 2) + offsetY)
+        this.p5.translate(500 + offsetX, 250 + offsetY)
     }
 
     render(gym: Gym, rotated: Vector[]) {
-        this.renderScoreHistory(gym.scoreHistory)
+        // this.renderScoreHistory(gym.scoreHistory)
         this.renderEnvironment(gym.races[0].environment)
 
-        this.renderRotated(rotated)
+        // this.renderRotated(rotated)
 
         gym.races[0].agents.forEach((agent, i) => {
             this.renderAgent(agent, i)
         })
 
-        this.renderScore(gym.races[0].agents)
+        // this.renderScore(gym.races[0].agents)
         this.renderGym(gym)
     }
 
     renderEnvironment = (env: Environment) => {
         this.p5.background(255, 255, 255)
-        this.p5.push()
-        this.translate()
+        /*
         this.p5.strokeWeight(80)
         this.p5.stroke(120, 120, 120)
         for (let i = 1; i < env.checkpoints.length; i++) {
@@ -58,6 +57,68 @@ export class Renderer {
         for (let i = 0; i < env.powerups.length; i++) {
             const cp = env.powerups[i].pos
             this.p5.rect(cp.x, cp.y, 10, 10)
+        }
+        */
+
+        // render tiles
+
+        this.p5.push()
+        this.translate()
+        
+        const DEBUG = true
+        if (DEBUG) {
+            this.p5.stroke(0)
+
+            env.tiles.forEach((t, i) => {
+
+                // render tile
+                this.p5.fill(120, 120, 255, 25)
+                this.p5.rect(t.center.x, t.center.y, tileSize, tileSize)
+
+                this.p5.stroke(0)
+                this.p5.text(i, t.center.x, t.center.y - 15)
+
+                // render connections
+                t.connections.forEach(c => {
+                    this.p5.fill(0, 255, 0)
+                    this.p5.ellipse(c.x, c.y, 15, 15)
+                })
+
+                t.checkpoints.forEach(c => {
+                    this.p5.fill(255)
+                    this.p5.ellipse(c.x, c.y, 10, 10)
+                })
+            })
+        } else {
+
+
+            for (let tI = 0; tI < env.tiles.length; tI++) {
+                let t1 = env.tiles[tI]
+
+                for (let cI = 1; cI < t1.checkpoints.length; cI++) {
+
+                    let c1 = t1.checkpoints[cI - 1]
+                    let c2 = t1.checkpoints[cI]
+
+
+                    this.p5.strokeWeight(50)
+                    this.p5.stroke(120,120,120)
+                    this.p5.fill(120, 120, 120)
+                    this.p5.line(c1.x, c1.y, c2.x, c2.y)
+
+                    this.p5.stroke(0)
+                    this.p5.strokeWeight(5)
+                    this.p5.fill(120, 120, 120)
+                    if(cI%2 == 0){
+                        this.p5.line(c1.x, c1.y, c2.x, c2.y)
+                    }
+                }
+
+                const last = t1.checkpoints[t1.checkpoints.length - 1]
+                const next = tI == env.tiles.length - 1 ? env.tiles[0] : env.tiles[tI + 1]
+                this.p5.line(last.x, last.y, next.checkpoints[0].x, next.checkpoints[0].y)
+
+            }
         }
 
         this.p5.pop()
@@ -98,8 +159,9 @@ export class Renderer {
 
         this.translate(agent.pos.x, agent.pos.y)
 
-        const agentSize = 30
-        this.p5.fill(250, 90, 90)
+        const agentSize = 40
+
+        this.p5.fill(0)
 
         this.p5.push()
         this.p5.rotate(agent.direction.heading())
@@ -155,7 +217,7 @@ export class Renderer {
         }
     }
 
-    renderLogs(gym:Gym) {
+    renderLogs(gym: Gym) {
 
         const data = gym.scoreHistory
 
@@ -170,8 +232,8 @@ export class Renderer {
             const logWindowHeight = 150;
             const logWindowWidth = 225;
             this.p5.fill(255)
-            this.p5.rect(0, 0, logWindowWidth*2, logWindowHeight*2)
-            this.p5.stroke(0,255,0)
+            this.p5.rect(0, 0, logWindowWidth * 2, logWindowHeight * 2)
+            this.p5.stroke(0, 255, 0)
             this.p5.fill(0)
             for (let i = 0; i < data.length - 1; i++) {
                 const p1 = data[i]
@@ -186,17 +248,17 @@ export class Renderer {
                     this.p5.line(x1, logWindowHeight - y1, x2, logWindowHeight - y2)
                 }
             }
-            
-            const hs = data[data.length-1]
+
+            const hs = data[data.length - 1]
 
             this.p5.strokeWeight(0.5)
-            this.p5.stroke(255,0,0)
-            this.p5.fill(255,0,0)
+            this.p5.stroke(255, 0, 0)
+            this.p5.fill(255, 0, 0)
             this.p5.text("Exploring...", 4, 10)
             this.p5.fill(0)
             this.p5.stroke(0)
             this.p5.text(`Epoch: ${epoch} / ${epochMax}`, 4, 25)
-            this.p5.text(`Score: ${hs}`,4,40)
+            this.p5.text(`Score: ${hs}`, 4, 40)
 
             if (data.length > logWindowWidth) {
                 data.shift()

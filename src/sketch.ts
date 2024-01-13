@@ -20,7 +20,14 @@ export const sketch = (p: p5) => {
   }
 
   p.setup = () => {
-    p.createCanvas(1000, 1000)
+    p.createCanvas(2000, 2000)
+
+    let button = p.createButton('delete stored brain');
+    button.position(0, 0);
+    button.mousePressed(()=>{
+      localStorage.clear()
+    })
+
     state.gym = new Gym()
     state.renderer = new Renderer(p)
   }
@@ -40,6 +47,7 @@ export const sketch = (p: p5) => {
         // render environment, agent, etc.
         state.renderer.render(state.gym, rotated)
         
+        state.renderer.renderLogs(state.gym)
         // if done -> reset
         if (state.gym.races[0].finished()) state.gym.races[0].reset()
         

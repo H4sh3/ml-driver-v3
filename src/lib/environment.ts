@@ -25,190 +25,126 @@ export class Powerup {
     }
 }
 
+export const tileSize = 400
+
+const tileOffsets = [
+    new Vector(0, -tileSize / 2),
+    new Vector(+tileSize / 2, 0),
+    new Vector(0, +tileSize / 2),
+    new Vector(-tileSize / 2, 0),
+]
+
+export class Tile {
+    center: Vector
+    connections: Vector[]
+
+    startConnection: Vector
+    endConnection: Vector
+    checkpoints: Vector[] = []
+
+    constructor(cellX: number, cellY: number, startConnection: number, endConnection: number) {
+        this.center = new Vector(cellX * tileSize, cellY * tileSize)
+        this.connections = tileOffsets.map(o => o.copy().add(this.center))
+        this.startConnection = this.connections[startConnection]
+        this.endConnection = this.connections[endConnection]
+
+        this.initCheckpoints()
+    }
+
+    initCheckpoints() {
+        const numPoints = 10; // Number of points to generate on the curve
+
+        for (let i = 0; i <= numPoints; i++) {
+            const t = i / numPoints;
+            const x = Math.pow(1 - t, 2) * this.startConnection.x + 2 * (1 - t) * t * this.center.x + Math.pow(t, 2) * this.endConnection.x;
+            const y = Math.pow(1 - t, 2) * this.startConnection.y + 2 * (1 - t) * t * this.center.y + Math.pow(t, 2) * this.endConnection.y;
+            this.checkpoints.push(new Vector(x, y));
+        }
+
+        // remove last element
+        this.checkpoints.pop()
+    }
+}
+
+export const combineCheckpoints = (tiles: Tile[]) => {
+    const checkpoints: Vector[] = []
+    tiles.forEach(t => checkpoints.push(...t.checkpoints))
+    return checkpoints
+}
+
+const connectionsPossibilities = [
+    new Vector(0, 1),
+    new Vector(0, 2),
+    new Vector(0, 3),
+    new Vector(1, 0),
+    new Vector(1, 2),
+    new Vector(1, 3),
+    new Vector(2, 0),
+    new Vector(2, 1),
+    new Vector(2, 3),
+    new Vector(3, 0),
+    new Vector(3, 1),
+    new Vector(3, 2),
+]
+
+function generateCombinations(n: number, current: Vector[] = [], result: Vector[][] = []): Vector[][] {
+  
+    if (n === 0) {
+      result.push(current);
+      return result;
+    }
+  
+    for (let i = 0; i < connectionsPossibilities.length; i++) {
+      const newPrefix = [...current, connectionsPossibilities[i]];
+      generateCombinations(n - 1, newPrefix, result);
+    }
+  
+    return result;
+}
+
 export class Environment {
-    numCheckpoints: number
-    checkpoints: Vector[]
-    maxDist = 150
-    center = new Vector(0, 0)
     startCheckpoint: number
-    powerups: Powerup[]
+    numCheckpoints: number
+    maxDist = 250
+    center = new Vector(0, 0)
+
+    checkpoints: Vector[] = []
+    powerups: Powerup[] = []
+    tiles: Tile[] = []
+
+
 
     constructor() {
-        this.checkpoints = []
-    }
 
-    initCircleTrack() {
-        const radius = 200
-        this.numCheckpoints = 36
-        for (let i = 0; i < this.numCheckpoints; i++) {
-            const rotation = (360 / this.numCheckpoints) * i
-            const v = new Vector(radius, 0).rotate(rotation)
-            this.checkpoints.push(v)
-        }
-    }
+        console.log(generateCombinations(2).length)
 
-    initSinTrack() {
-        const height = 300
-        for (let i = 0; i < 20; i++) {
-            const mappedY = mapValue(i, 0, 20, height, -height)
-            const v = new Vector(Math.sin((i) / 2) * 50, mappedY - 20)
-            this.checkpoints.push(v)
-        }
-
-        let lcp = this.checkpoints[this.checkpoints.length - 1]
-        this.checkpoints.push(new Vector(lcp.x - 36, lcp.y - 10))
-
-        const xOffset = 80
-        for (let i = 0; i < 20; i++) {
-            const mappedY = mapValue(i, 0, 20, -height, height)
-            const v = new Vector(-xOffset - Math.sin((i) / 2) * 50, mappedY + 10)
-            this.checkpoints.push(v)
-        }
-        lcp = this.checkpoints[this.checkpoints.length - 1]
-        this.checkpoints.push(new Vector(lcp.x + 36, lcp.y + 10))
-
+        this.tiles.push(new Tile(1, 0, 1, 3))
+        this.tiles.push(new Tile(0, 0, 1, 2))
+        this.tiles.push(new Tile(0, 1, 0, 1))
+        this.tiles.push(new Tile(1, 1, 3, 2))
+        this.tiles.push(new Tile(1, 2, 0, 3))
+        this.tiles.push(new Tile(0, 2, 1, 2))
+        this.tiles.push(new Tile(0, 3, 0, 1))
+        this.tiles.push(new Tile(1, 3, 3, 0))
+        this.tiles.push(new Tile(1, 2, 2, 1))
+        this.tiles.push(new Tile(2, 2, 3, 0))
+        this.tiles.push(new Tile(2, 1, 2, 1))
+        this.tiles.push(new Tile(3, 1, 3, 0))
+        this.tiles.push(new Tile(3, 0, 2, 3))
+        this.tiles.push(new Tile(2, 0, 1, 3))
+        this.checkpoints = combineCheckpoints(this.tiles)
         this.numCheckpoints = this.checkpoints.length
-    }
-
-    initBPark() {
-        // left
-        const h = 500
-        const w = 300
-        const numCornerCP = 18
-        const numCornerCPHalf = numCornerCP / 2
-
-        const numCP = 20
-
-        for (let y = (numCP / 2); y >= (-numCP / 2); y--) {
-            this.checkpoints.push(new Vector(0, y * (h / numCP)))
-        }
-
-        // top curve
-        const center = new Vector(w / 2, 0)
-        for (let i = -numCornerCPHalf; i <= numCornerCPHalf; i++) {
-            const cp = center.copy().rotate(mapValue(i, -numCornerCPHalf, numCornerCPHalf, -180, 0))
-            cp.y += (-h / 2) - 20
-            cp.x += w / 2
-            this.checkpoints.push(cp)
-        }
-
-        // right
-        for (let y = -numCP / 2; y <= numCP / 2; y++) {
-            this.checkpoints.push(new Vector(w, y * (h / numCP)))
-        }
-
-        // bottom cuve
-        for (let i = -numCornerCPHalf; i <= numCornerCPHalf; i++) {
-            const rotation = mapValue(i, -numCornerCPHalf, numCornerCPHalf, 0, 180)
-            const cp = center.copy().rotate(rotation)
-            cp.y += (h / 2) + 20
-            cp.x += w / 2
-            this.checkpoints.push(cp)
-        }
-
-        this.numCheckpoints = this.checkpoints.length
-
-        // add powerups 
-        const yPos = (h / 2) - 30
-        const dist = 30
-        this.powerups = []
-        this.powerups.push(new Powerup(new Vector(-dist, -yPos)))
-        this.powerups.push(new Powerup(new Vector(0, -yPos)))
-        this.powerups.push(new Powerup(new Vector(dist, -yPos)))
-
-        this.powerups.push(new Powerup(new Vector(-dist + w, yPos)))
-        this.powerups.push(new Powerup(new Vector(0 + w, yPos)))
-        this.powerups.push(new Powerup(new Vector(dist + w, yPos)))
-    }
-
-
-    generateCurve(w:number, h:number){
-        const checkpoints = []
-       
-        let numCornerCP = 12
-        let numCornerCPHalf = numCornerCP / 2
-
-        const center = new Vector(h,0)
-        
-        for (let i = -numCornerCPHalf; i <= numCornerCPHalf; i++) {
-            const cp = center.copy().rotate(mapValue(i, -numCornerCPHalf, numCornerCPHalf, -180, 180))
-            cp.y += (-h / 2) - 20
-            cp.x += w / 2
-            checkpoints.push(cp)
-        }
-
-        return checkpoints
-    }
-
-    rotateCps(checkpoints: Vector[], angle: number){
-        checkpoints.forEach(element => {
-            element.rotate(angle)
-        });
-    }
-
-    initNewTrack() {
-        // left
-        const h = 250
-        const w = 250
-
-        const cps = this.generateCurve(w,h)
-        //this.rotateCps(cps, 90)
-        this.checkpoints = cps
-
-        /*
-        // left
-        for (let y = (numCP / 2); y >= (-numCP / 2); y--) {
-            this.checkpoints.push(new Vector(0, y * (h / numCP)))
-        }
-
-        // top curve
-        const center = new Vector(w / 2, 0)
-        for (let i = -numCornerCPHalf; i <= numCornerCPHalf; i++) {
-            const cp = center.copy().rotate(mapValue(i, -numCornerCPHalf, numCornerCPHalf, -180, 0))
-            cp.y += (-h / 2) - 20
-            cp.x += w / 2
-            this.checkpoints.push(cp)
-        }
-
-        // right
-        for (let y = -numCP / 2; y <= numCP / 2; y++) {
-            this.checkpoints.push(new Vector(w, y * (h / numCP)))
-        }
-
-        // bottom cuve
-        for (let i = -numCornerCPHalf; i <= numCornerCPHalf; i++) {
-            const rotation = mapValue(i, -numCornerCPHalf, numCornerCPHalf, 0, 180)
-            const cp = center.copy().rotate(rotation)
-            cp.y += (h / 2) + 20
-            cp.x += w / 2
-            this.checkpoints.push(cp)
-        }
-        */
-
-        this.numCheckpoints = this.checkpoints.length
-
-        // add powerups 
-        const yPos = (h / 2) - 30
-        const dist = 30
-        this.powerups = []
-        this.powerups.push(new Powerup(new Vector(-dist, -yPos)))
-        this.powerups.push(new Powerup(new Vector(0, -yPos)))
-        this.powerups.push(new Powerup(new Vector(dist, -yPos)))
-
-        this.powerups.push(new Powerup(new Vector(-dist + w, yPos)))
-        this.powerups.push(new Powerup(new Vector(0 + w, yPos)))
-        this.powerups.push(new Powerup(new Vector(dist + w, yPos)))
     }
 
     getStartSettings() {
         this.startCheckpoint = 10
-        
+
         const c1 = this.checkpoints[this.startCheckpoint]
         const c2 = this.checkpoints[this.startCheckpoint + 1]
 
         const difference = c1.copy().sub(c2)
 
-        const startPosition = c1.copy().add(difference.mult(0.5))
+        const startPosition = c1.copy().add(difference.mult(2))
         const startDir = c1.copy().sub(startPosition).normalize()
 
         return { startPosition, startDir }

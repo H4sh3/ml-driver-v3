@@ -36,8 +36,6 @@ export const getNewRace = () => {
     const agents = []
 
     const env = new Environment()
-    env.initBPark()
-    // env.initNewTrack()
 
     const { startPosition, startDir } = env.getStartSettings()
 
@@ -60,7 +58,7 @@ export class Gym {
     storage:LocalStorageManager
 
     epoch: number = 0
-    exploreEpoch: number = 500
+    exploreEpoch: number = 2500
     exploring: boolean = true
 
     step: number
@@ -107,8 +105,9 @@ export class Gym {
             while(this.races[0].neuralNets.length < numAgents){
                 this.races[0].neuralNets.push(stored.copy())
             }
-
         }else{
+            console.log("using new brains")
+            this.bestBrains.push(getNN())
             this.bestBrains.push(getNN())            
         }
     }
@@ -156,22 +155,28 @@ export class Gym {
             const bestScore = Math.max(...this.scoreHistory)
             if(highscore > bestScore){
                 this.scoreHistory.push(highscore)
+            }else{
+                this.scoreHistory.push(bestScore)
             }
 
             // keep best
-            const a1 = brainScores[0]
-            const a2 = brainScores[1]
+            const a1 = this.bestBrains[0]
+            const a2 = this.bestBrains[1]
+
+            //const a1 = brainScores[0].nn
+            //const a2 = brainScores[1].nn
             const mutRate = this.epsilonMutate(this.epoch)
+
             for (let i = 0; i < this.races.length / 2; i++) {
                 const race = this.races[i]
                 race.reset()
                 race.neuralNets = []
 
-                const nn1 = a1.nn.copy()
+                const nn1 = a1.copy()
                 nn1.mutate(mutRate)
                 race.neuralNets.push(nn1)
 
-                const nn2 = a2.nn.copy()
+                const nn2 = a2.copy()
                 nn2.mutate(mutRate)
                 race.neuralNets.push(nn2)
 
@@ -195,7 +200,7 @@ export class Gym {
             this.epoch++
 
             // return every few epochs to render progress
-            if (this.epoch % 5 == 0) {
+            if (this.epoch % 100 == 0) {
                 console.log(`${this.epoch} / ${this.exploreEpoch}: ${this.bestScore}`)
                 return
             }

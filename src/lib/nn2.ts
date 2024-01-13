@@ -70,7 +70,6 @@ class NeuralNetwork {
     for (let i = 0; i < this.weights.length; i++) {
       current_output = Matrix.multiply(this.weights[i], current_output);
       current_output.add(this.biases[i]);
-      console.log(this.activation_function.func)
       current_output.map(this.activation_function.func);
     }
   

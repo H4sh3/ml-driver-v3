@@ -73,29 +73,21 @@ export class Agent {
         }
 
 
-        if(!this.alive) return
+        if (!this.alive) return
 
         this.isBoosting = boosting
 
         this.direction.rotate(steeringChange)
 
-        const newAcc = this.acc + accChange + (boosting ? 0.25 : 0)
-        if (newAcc < 1 && newAcc > 0) {
-            this.acc = newAcc
-        }
+        this.acc += accChange
+        if(boosting) this.acc += 0.15
 
         const tmpAcc = this.direction.copy().mult(this.acc)
 
         this.vel.add(tmpAcc)
-        // this.vel.div(boosting ? 1.10 : 1.15)
-        this.vel.mult(0.92)
+        this.vel.mult(0.90)
 
         this.pos.add(this.vel)
-
-        const velMag = this.vel.mag()
-        if (velMag > this.maxVelMag) {
-            this.maxVelMag = velMag
-        }
 
         this.ticksSinceLastCheckpoint += 1
 
@@ -103,6 +95,11 @@ export class Agent {
         if (this.ticksSinceLastCheckpoint > 25) {
             this.score = 0
             this.alive = false
+        }
+
+        const velMag = this.vel.mag()
+        if (velMag > this.maxVelMag) {
+            this.maxVelMag = velMag
         }
     }
 }
